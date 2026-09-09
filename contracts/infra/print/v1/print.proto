@@ -51,7 +51,10 @@ message PrintTemplate {
 // idempotency_key（设计计划 §1.1：本组件是纯函数，不需要）。
 message RenderRequest {
   string template_id = 1;
-  string data_json = 2;        // 渲染所需的全部数据，调用方整个传入，本组件不回查任何业务库
+  string data_json = 2;         // 渲染所需的全部数据，调用方整个传入，本组件不回查任何业务库
+  string source_component = 3;  // 调用方组件 id（如 "erp/sales"），写进 print_jobs/infra.print.rendered.v1 供排障——
+                                 // ⚠️ 平台没有 gRPC 调用方身份自动注入机制（同 infra-workflow 等既有组件的判据：
+                                 // 组件间 gRPC 目前不转发/验证身份），这里只能靠调用方自己如实填，本组件不校验它是否属实
 }
 
 message RenderResponse {

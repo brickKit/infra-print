@@ -1,0 +1,37 @@
+[project]
+name = "infra-print"
+version = "1.0.0"
+description = "infra-print：全系统第一个 Python 组件，纯函数打印渲染中心（设计书 §6.11）"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "besdk @ git+https://github.com/brickKit/be-sdk-python.git@v0.3.0",
+    "weasyprint==63.1",
+    "yoyo-migrations==9.0.0",
+    "psycopg2-binary==2.9.10",  # yoyo 的 postgresql:// 后端驱动，只给 app/migrate.py 用，业务代码走 asyncpg
+    "jinja2==3.1.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.4.1",
+    "pytest-asyncio==1.2.0",
+    "grpcio-tools==1.76.0",
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+# ⚠️ 两个根：`.` 找业务代码包 `app`，`gen` 找 buf/grpc_tools 生成的
+# `infra.print.v1` 包——生成代码里的 import 语句写的是
+# `from infra.print.v1 import print_pb2`（顶层 `infra`，不是
+# `gen.infra`），所以 `gen` 目录本身不能有 __init__.py（那样会让它自己
+# 变成一层包，import 路径就对不上了），只能靠这里的多根发现把
+# `gen/infra/...` 里的 `infra` 包暴露成顶层包。
+where = ["backend", "gen"]
+include = ["app*", "infra*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
