@@ -1,6 +1,6 @@
 [project]
 name = "infra-print"
-version = "1.0.0"
+version = "1.0.1"
 description = "infra-print：全系统第一个 Python 组件，纯函数打印渲染中心（设计书 §6.11）"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
