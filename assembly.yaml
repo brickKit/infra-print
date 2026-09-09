@@ -1,0 +1,40 @@
+id: infra/print                      # 必须与 component.yaml 一致，be-ops 校验
+version: 1.0.0
+
+asset:
+  source_type: open_standard
+  assembly_role: default
+  contract_lock: strict
+  customization_guide: |
+    模板形态（HTML vs ODT/LibreOffice）与渲染引擎（WeasyPrint vs Chromium）
+    是本组件的两个 Fork 点（设计计划 §8 结尾的分歧排查）——都不满足
+    §5.11 硬约束"没有组件对它建依赖边"的槽位前提（erp-sales 等业务组件
+    强依赖 Render），落点是 customer_fork，不是槽位。渲染引擎本身藏在
+    内部接口后面（Render(template, data) -> bytes），换引擎不改契约。
+    metadata.id 与 version 一个字都不能改——改了所有依赖方的
+    INFRA_PRINT_ENDPOINT 会整个消失。
+
+domain: infra
+tier: backend
+
+edge_routes:
+  - { path: /infra/print/**, auth: required }
+
+menus:
+  - { key: infra.print, title: 打印模板管理, permission: infra.print.template.view }
+
+data:
+  schema: infra_print                  # registry/schemas.tsv
+  role:   infra_print_rw               # 只用于 SET LOCAL ROLE，从不登录，因此不进 brickkit.yaml
+
+# data_scopes: none——模板是全局资产（一个客户就一套送货单模板），不做
+# 行级过滤（设计计划 §1）。⚠️ 渲染出来的内容里有业务数据，但访问控制靠
+# 调用方（业务组件在自己那边判完权限才来调 Render），不是本组件的职责。
+data_scopes: none
+
+permissions:
+  - { key: infra.print.render,          title: 调用渲染,       type: action }
+  - { key: infra.print.template.view,   title: 查看打印模板,   type: page   }
+  - { key: infra.print.template.edit,   title: 编辑打印模板,   type: action }
+
+shell: py-render                       # 合并部署时进外壳五（§13.2、设计计划身份证）

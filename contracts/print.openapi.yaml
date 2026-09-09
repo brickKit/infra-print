@@ -1,0 +1,150 @@
+openapi: 3.0.3
+info:
+  title: infra-print · 打印渲染中心
+  version: 1.0.0
+  description: |
+    对外 REST 面，路径统一挂在 `/infra/print/**` 前缀下。
+
+    ⚠️ 本组件是纯函数（设计计划 §1.1）：`POST /render` 没有幂等键，
+    重复调用直接重算一遍，不需要先查状态。
+
+paths:
+  /infra/print/render:
+    post:
+      summary: 渲染——前端直接要预览/打印时用
+      operationId: render
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RenderRequest" }
+      responses:
+        "200":
+          description: 渲染成功，响应体是原始字节流（PDF 或 ZPL 文本）
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            text/plain: { schema: { type: string } }
+
+  /infra/print/templates:
+    get:
+      summary: 模板清单
+      operationId: listTemplates
+      parameters:
+        - { name: channel,    in: query, schema: { type: string, enum: [PDF, ZPL] } }
+        - { name: cursor,     in: query, schema: { type: string } }
+        - { name: page_size,  in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TemplateListResponse" }
+
+  /infra/print/templates/{id}:
+    get:
+      summary: 模板详情
+      operationId: getTemplate
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrintTemplate" }
+    put:
+      summary: 上传新版本
+      operationId: putTemplate
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TemplateUpdate" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrintTemplate" }
+
+  /infra/print/templates/{id}/rollback:
+    post:
+      summary: 回滚到指定历史版本——把历史版本复制成新的当前版本，不是删掉新版本
+      operationId: rollbackTemplate
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrintTemplate" }
+
+  /infra/print/templates/{id}/preview:
+    post:
+      summary: 用样例数据预览，不写 print_jobs（不算一次正式渲染）
+      operationId: previewTemplate
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { type: object, description: "样例数据" }
+      responses:
+        "200":
+          description: 预览成功，响应体是原始字节流
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            text/plain: { schema: { type: string } }
+
+components:
+  schemas:
+    RenderRequest:
+      type: object
+      required: [template_id, data]
+      properties:
+        template_id: { type: string }
+        data: { type: object, description: "渲染所需的全部数据，本组件不回查任何业务库" }
+
+    PrintTemplate:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        channel: { type: string, enum: [PDF, ZPL] }
+        content: { type: string }
+        version: { type: integer }
+        enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    TemplateUpdate:
+      type: object
+      required: [name, channel, content]
+      properties:
+        name: { type: string }
+        channel: { type: string, enum: [PDF, ZPL] }
+        content: { type: string }
+        enabled: { type: boolean }
+
+    TemplateListResponse:
+      type: object
+      properties:
+        templates:
+          type: array
+          items: { $ref: "#/components/schemas/PrintTemplate" }
+        next_cursor: { type: string }

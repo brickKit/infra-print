@@ -1,0 +1,70 @@
+apiVersion: brickkit/v1
+kind: Component
+
+metadata:
+  id: infra/print                     # ⚠️ Fork 件必须与标准件完全一致（§3.4.1）
+  name: 打印渲染中心
+  version: 1.0.0                      # 精确版本，不接受 ^ / ~ / latest
+  description: 全系统第一个 Python 组件——纯函数渲染中心，template_id + 数据(JSON) → PDF 字节流或 ZPL 指令流，严禁包含业务逻辑（设计书 §6.11）
+  license: Apache-2.0
+  vendor: brickKit
+
+tags: [infra, print, python, render]
+
+artifacts:
+  - type: api-contract
+    format: protobuf
+    files:
+      - contracts/infra/print/v1/print.proto
+      - contracts/events/print.events.json
+  - type: api-contract
+    format: openapi
+    files: [contracts/print.openapi.yaml]
+  - type: metadata                    # ← assembly.yaml 靠这一条随组件分发（§3.5）
+    files: [assembly.yaml]
+
+# ⚠️ 零强依赖零弱依赖——本组件是"纯函数"（设计计划 §1.1）：数据由调用方
+# 整个传进来，本组件不回查任何业务库；不消费任何事件（§6.11 明令禁止
+# 理解业务语义）。零出边，只有入边（erp-sales 等业务组件强依赖我）。
+dependencies:
+  components: []
+  resources:
+    - { kind: database, engine: postgresql }
+    - { kind: mq,       engine: nats }         # 仅用于发 infra.print.rendered.v1 旁路审计事件
+
+configSchema:
+  type: object
+  properties:
+    pgSchema:                         # ⚠️ 不能叫 databaseSchema，DATABASE_ 是保留前缀
+      type: string
+      default: infra_print
+    otelBaseUrl:                      # ⚠️ 不能叫 otelEndpoint，*_ENDPOINT 是保留后缀
+      type: string
+      default: ""                     # 空 → Blackhole Exporter，零成本（§7.5）
+    iamJwksUrl:                       # JWT 本地验签的公钥来源，指向 infra-iam-casdoor
+      type: string
+      default: ""
+    authzBundleUrl:                   # 权限判定的 bundle 轮询地址，指向 infra-authz
+      type: string
+      default: ""
+
+deployment:
+  type: container
+  image: brickenterprise/infra-print:1.0.0
+  port: 8400                          # 端口册 registry/ports.tsv
+  extraPorts:
+    - { name: grpc, port: 9400 }      # → INFRA_PRINT_GRPC_ENDPOINT（值仍以 http:// 开头）
+  labels:                             # 平台只搬运，不解释键值。值必须是字符串
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8400"
+    prometheus.io/path: "/metrics"
+  resources:
+    requests: { cpu: "150m", memory: "256Mi" }  # WeasyPrint 渲染比纯 IO 型组件吃内存，起点比默认高一档
+
+migration:
+  command: ["python", "-m", "app.migrate", "apply"]
+
+healthCheck:
+  type: http
+  path: /healthz                      # ⚠️ 只查本进程存活，严禁查库、查依赖组件（§12.3.6）
+  startPeriodSeconds: 120              # ⚠️ Python 组件写 120，不是 Go 的默认 60（总纲全局约束§K3、设计书 §12.3.5）

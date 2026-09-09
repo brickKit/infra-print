@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package infra.print.v1;
+
+option go_package = "github.com/brickKit/infra-print/gen/infra/print/v1;printv1";
+
+import "google/protobuf/timestamp.proto";
+
+// PrintService 是打印渲染中心的 gRPC 契约（设计计划 §3）。
+//
+// ⚠️ 本组件是"纯函数"（设计计划 §1.1）：同样的 template_id + 同样的
+// 数据 = 同样的输出。这条推论落到契约上就是——`Render` 全系统唯一不带
+// `idempotency_key` 的写命令 rpc：没有副作用，重复调用直接重算一遍，
+// 调用方超时了可以直接重发，不需要先查状态。
+service PrintService {
+  // Render 是唯一的渲染入口——两条完全不同的渲染路径（HTML→PDF 单据、
+  // ZPL 条码标签）共用这一个接口，内部按 template.channel 分流
+  // （设计计划 §3.2）。⚠️ 严禁包含业务逻辑：本组件不判断"要不要打印"、
+  // "什么时候打印"，收到请求就渲染。
+  rpc Render(RenderRequest) returns (RenderResponse);
+
+  // BatchGetTemplates 是防 N+1 的唯一合法批量读方式（§3.8）。
+  rpc BatchGetTemplates(BatchGetTemplatesRequest) returns (BatchGetTemplatesResponse);
+
+  // ListTemplates 是模板清单，给管理界面用。
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+}
+
+// Channel 区分两条完全不同的渲染路径（设计计划 §3.2）：PDF 走 HTML+CSS
+// 模板 + WeasyPrint；ZPL 走纯文本指令模板替换，不经过任何渲染引擎。
+enum Channel {
+  CHANNEL_UNSPECIFIED = 0;
+  CHANNEL_PDF = 1;
+  CHANNEL_ZPL = 2;
+}
+
+// PrintTemplate 是模板的当前版本，读接口直接返回它本身（不额外包一层
+// XxxResponse——本项目契约的一贯风格）。
+message PrintTemplate {
+  string id = 1;
+  string name = 2;
+  Channel channel = 3;
+  string content = 4;          // HTML+CSS 源码，或 ZPL 指令模板文本
+  int32 version = 5;
+  bool enabled = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// RenderRequest：template_id + 数据（JSON 文本）→ 字节流。⚠️ 没有
+// idempotency_key（设计计划 §1.1：本组件是纯函数，不需要）。
+message RenderRequest {
+  string template_id = 1;
+  string data_json = 2;        // 渲染所需的全部数据，调用方整个传入，本组件不回查任何业务库
+}
+
+message RenderResponse {
+  bytes content = 1;
+  string content_type = 2;     // "application/pdf" 或 "text/plain"（ZPL 指令）
+}
+
+message BatchGetTemplatesRequest {
+  repeated string template_ids = 1;
+}
+
+message BatchGetTemplatesResponse {
+  // 顺序与 template_ids 一致；查不到的 id 对应位置省略（同 batchGet 惯例）。
+  repeated PrintTemplate templates = 1;
+}
+
+message ListTemplatesRequest {
+  Channel channel = 1;         // 未指定 = 不筛
+  // ⚠️ 禁止深 Offset，强制 Cursor Pagination（决策 53）。
+  string cursor = 2;
+  int32 page_size = 3;
+}
+
+message ListTemplatesResponse {
+  repeated PrintTemplate templates = 1;
+  string next_cursor = 2;
+}

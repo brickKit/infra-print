@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "infra-print 事件清单",
+  "note": "Schema 演进铁律：只增不删不改（决策 19）。消费者宽容反序列化。⚠️ 本组件只发这一条、且是旁路——打印本身不改变任何业务状态，没有下游需要靠它推进流程，仅供 infra-audit（阶段五）落审计（设计计划 §4）。本组件不消费任何事件：消费任何业务事件都意味着要理解业务语义，§6.11 明令禁止。",
+  "envelope": {
+    "description": "所有事件共用的信封。三个 Header 字段由 be-sdk 自动填/校验（§3.10）",
+    "required": ["subject", "aggregate_id", "version", "trace_id", "causation_id", "hop_count", "occurred_at"],
+    "properties": {
+      "subject":      { "type": "string", "pattern": "^[a-z]+\\.[a-z-]+\\.[a-z-]+\\.v[0-9]+$" },
+      "aggregate_id": { "type": "string" },
+      "version":      { "type": "integer", "description": "消费者只在严格大于本地当前值时更新（决策 43）" },
+      "trace_id":     { "type": "string" },
+      "causation_id": { "type": "string" },
+      "hop_count":    { "type": "integer", "maximum": 5, "description": "> 5 直接丢弃进 DLQ（决策 42）" },
+      "occurred_at":  { "type": "string", "format": "date-time" }
+    }
+  },
+  "events": [
+    {
+      "subject": "infra.print.rendered.v1",
+      "grade": "peripheral",
+      "note": "一次渲染完成（成功或失败）时发。aggregate_id 是 print_jobs 的行 id。仅供 infra-audit（阶段五）落审计，不驱动任何下游业务逻辑。",
+      "payload": {
+        "type": "object",
+        "required": ["job_id", "template_id", "success"],
+        "properties": {
+          "job_id":            { "type": "string" },
+          "template_id":       { "type": "string" },
+          "actor":             { "type": "string", "description": "调用方的 sub，来自 besdk.ScopeOf(ctx)——只有 REST 面（人类操作）才有意义，组件间 gRPC 调用可能是空字符串" },
+          "source_component":  { "type": "string", "description": "调用方组件 id，如 erp/sales，排障用" },
+          "success":           { "type": "boolean" },
+          "error":             { "type": "string", "description": "success=false 时的错误信息" }
+        }
+      }
+    }
+  ]
+}
