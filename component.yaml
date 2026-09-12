@@ -4,7 +4,7 @@ kind: Component
 metadata:
   id: infra/print                     # ⚠️ Fork 件必须与标准件完全一致（§3.4.1）
   name: 打印渲染中心
-  version: 1.0.3                      # 精确版本，不接受 ^ / ~ / latest。1.0.1：后端实现完成（Step A 的 1.0.0 只有骨架/契约/迁移，没有可运行的后端）；1.0.2：真机 brickkit up 发现 /healthz 对 HEAD 返回 405（be-sdk-python@v0.3.1 修复，见实测踩坑记录 A9），升级 besdk 依赖；1.0.3：docs/手册.md 的 TEST_PG_DSN/DATABASE_NAME 示例改指向 brickkit_test_db，纯文档，无行为/契约变更
+  version: 1.0.4                      # 精确版本，不接受 ^ / ~ / latest。1.0.4：新增 make seed（从零设计——建仓库以来没有任何模板数据，Render 之前拿任何 template_id 都是 404，组件完全没法被真机体验）。上传 2 个真实模板：seed-template-delivery-note（PDF，WeasyPrint+Jinja2，真实按行循环，显式写 font-family: "Noto Sans CJK SC" 避开 fontconfig 默认选错 JP 变体这个 README.md 已记载的已知坑）+ seed-template-shipping-label（ZPL，含真实条码指令）。真机验证过真调 Render：PDF 真实渲染成功、pdftotext 提取中文无乱码；ZPL 正确变量替换。没有配套 seed-clean——模板走版本管理，重跑只追加新版本。无破坏性变更；1.0.3：docs/手册.md 的 TEST_PG_DSN/DATABASE_NAME 示例改指向 brickkit_test_db，纯文档，无行为/契约变更
   description: 全系统第一个 Python 组件——纯函数渲染中心，template_id + 数据(JSON) → PDF 字节流或 ZPL 指令流，严禁包含业务逻辑（设计书 §6.11）
   license: Apache-2.0
   vendor: brickKit
@@ -50,7 +50,7 @@ configSchema:
 
 deployment:
   type: container
-  image: brickenterprise/infra-print:1.0.3
+  image: brickenterprise/infra-print:1.0.4
   port: 8400                          # 端口册 registry/ports.tsv
   extraPorts:
     - { name: grpc, port: 9400 }      # → INFRA_PRINT_GRPC_ENDPOINT（值仍以 http:// 开头）

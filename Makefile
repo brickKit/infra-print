@@ -3,7 +3,7 @@ VERSION := $(shell grep -E '^\s+version:' component.yaml | head -1 | awk '{print
 PYTHON  := .venv/bin/python3
 
 .DEFAULT_GOAL := help
-.PHONY: help all check-version test image migrate-idempotent dag-check contract-check import-scan module-check docs-check smoke
+.PHONY: help all check-version test image migrate-idempotent dag-check contract-check import-scan module-check docs-check smoke seed
 
 help:  ## 列出所有目标
 	@awk 'BEGIN{FS=":.*##"; printf "\n用法: make <目标>\n\n"} \
@@ -82,3 +82,9 @@ docs-check:  ## 四份文档结构检查（总纲 §4 SOP-D）
 
 smoke:  ## 原则一：只装这一个组件就能起来（§1.5、§3.11 第 8 条）
 	@(cd ../../.. && brickkit up --dry-run >/dev/null) && echo "✓ smoke（完整版见 make tier0）"
+
+##@ 本地开发数据（总纲 SOP-W-7，仅本地/演示用，不进部署/CI）
+seed:  ## 上传 2 个真实可渲染的示例模板（PDF 送货单 + ZPL 发货标签），幂等（重跑追加新版本，不重复建行）。链式建好身份，单独跑就能拿到完整数据
+	@$(MAKE) -C ../iam-casdoor seed
+	@$(MAKE) -C ../authz seed
+	@bash scripts/seed.sh

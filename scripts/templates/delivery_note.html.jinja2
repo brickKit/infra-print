@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  /* ⚠️ 必须显式写 CJK SC 变体，不能依赖字体回退——fontconfig 在没有
+     lang hint 时默认选 Noto CJK 的 JP 变体而不是 SC（简体中文），见
+     README.md/docs/手册.md 记载的真实踩过的坑。 */
+  body { font-family: "Noto Sans CJK SC", sans-serif; font-size: 12px; }
+  h1 { font-size: 18px; text-align: center; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; }
+  .meta { margin-top: 8px; }
+  .total { text-align: right; margin-top: 8px; font-weight: bold; }
+</style>
+</head>
+<body>
+  <h1>送货单</h1>
+  <div class="meta">
+    <div>单号：{{ order_no }}</div>
+    <div>客户：{{ customer_name }}</div>
+    <div>日期：{{ order_date }}</div>
+  </div>
+  <table>
+    <thead>
+      <tr><th>产品名称</th><th>数量</th><th>单价</th><th>小计</th></tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.name }}</td>
+        <td>{{ item.qty }}</td>
+        <td>{{ item.unit_price }}</td>
+        <td>{{ item.subtotal }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="total">合计：{{ total_amount }}</div>
+</body>
+</html>
