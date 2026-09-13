@@ -5,7 +5,13 @@ description = "infra-print：全系统第一个 Python 组件，纯函数打印�
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 dependencies = [
-    "besdk @ git+https://github.com/brickKit/be-sdk-python.git@v0.3.1",
+    # v0.3.1 → v0.3.3：阶段四 Task 7，be-shell-python 把本组件直接装成
+    # 依赖时，pip/uv 的 git URL 依赖解析不接受两个不同 tag 同时出现
+    # （be-shell-python 自己已经在用 v0.3.3）。核对过 v0.3.1..v0.3.3 只新增
+    # 了 besdk/shell.py 这一个外壳级构件模块 + 一处版本号元数据修正，本
+    # 组件用到的 standalone.py/runtime.py 等既有 API 一个字没动，纯升版本
+    # 号，无需改本组件任何业务代码。
+    "besdk @ git+https://github.com/brickKit/be-sdk-python.git@v0.3.3",
     "weasyprint==63.1",
     "yoyo-migrations==9.0.0",
     "psycopg2-binary==2.9.10",  # yoyo 的 postgresql:// 后端驱动，只给 app/migrate.py 用，业务代码走 asyncpg
