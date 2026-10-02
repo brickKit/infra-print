@@ -51,9 +51,15 @@ def main(argv: list[str] | None = None) -> int:
     migrations = read_migrations(str(_MIGRATIONS_DIR))
     with backend.lock():
         if args[0] == "apply":
-            backend.apply_migrations(backend.to_apply(migrations))
+            todo = backend.to_apply(migrations)
+            backend.apply_migrations(todo)
         else:
-            backend.rollback_migrations(backend.to_rollback(migrations))
+            todo = backend.to_rollback(migrations)
+            backend.rollback_migrations(todo)
+    # yoyo 成功时什么都不打印；迁移容器的日志里至少要有一行说明做了什么。
+    done = ", ".join(m.id for m in todo) or "无（已是最新）"
+    schema = os.environ.get("PG_SCHEMA") or _DEFAULT_SCHEMA
+    print(f"infra_print.migrate {args[0]} 完成：schema={schema}，本次 {len(todo)} 个：{done}", flush=True)
     return 0
 
 
