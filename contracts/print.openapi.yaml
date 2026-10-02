@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
-  title: infra-print · 打印渲染中心
-  version: 1.0.0
+  title: infra-print · 打印渲染
+  version: 2.0.0
   description: |
     对外 REST 面，路径统一挂在 `/infra/print/**` 前缀下。
 
-    ⚠️ 本组件是纯函数（设计计划 §1.1）：`POST /render` 没有幂等键，
-    重复调用直接重算一遍，不需要先查状态。
+    本组件是纯函数：同样的模板版本 + 同样的数据 = 同样的输出。`POST /render`
+    没有幂等键，重复调用直接重算一遍，调用方超时可以直接重发。
 
 paths:
   /infra/print/render:
@@ -90,6 +90,25 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/PrintTemplate" }
 
+  /infra/print/templates/{id}/versions:
+    get:
+      summary: 模板的历史版本，新的在前（游标分页）。回滚时用它选版本
+      operationId: listTemplateVersions
+      parameters:
+        - { name: id,        in: path,  required: true, schema: { type: string } }
+        - { name: cursor,    in: query, schema: { type: string }, description: "上一页的 next_cursor；空 = 从最新版本开始" }
+        - { name: page_size, in: query, schema: { type: integer }, description: "1–200，缺省或越界按 50" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TemplateVersionListResponse" }
+        "400":
+          description: cursor 不是上一页给出的值
+        "404":
+          description: 模板不存在
+
   /infra/print/templates/{id}/preview:
     post:
       summary: 用样例数据预览，不写 print_jobs（不算一次正式渲染）
@@ -140,6 +159,22 @@ components:
         channel: { type: string, enum: [PDF, ZPL] }
         content: { type: string }
         enabled: { type: boolean }
+
+    TemplateVersion:
+      type: object
+      properties:
+        version: { type: integer }
+        name: { type: string }
+        enabled: { type: boolean, description: "写入这个版本时模板的启用状态" }
+        created_at: { type: string, format: date-time }
+
+    TemplateVersionListResponse:
+      type: object
+      properties:
+        versions:
+          type: array
+          items: { $ref: "#/components/schemas/TemplateVersion" }
+        next_cursor: { type: string, description: "空 = 没有更早的版本了" }
 
     TemplateListResponse:
       type: object
