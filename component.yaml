@@ -62,4 +62,4 @@ healthCheck:
 
 local:
   language: python
-  runCommand: [python, "-m", infra_print.main]
+  runCommand: [.venv/bin/python, "-m", infra_print.main]
