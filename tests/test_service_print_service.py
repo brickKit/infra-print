@@ -1,4 +1,4 @@
-"""app.service.print_service——端到端：真实 Postgres + 真实 WeasyPrint
+"""infra_print.service.print_service——端到端：真实 Postgres + 真实 WeasyPrint
 渲染，验证中文内容不是乱码（同本次实现前用一次性容器实测过的
 fonts-noto-cjk 结论，host 机器已装同一套字体，见 AGENTS.md）。
 """
@@ -13,8 +13,8 @@ import pytest
 
 _logger = logging.getLogger("test_service_print_service")
 
-from app.repo.templates import put_template
-from app.service.print_service import (
+from infra_print.repo.templates import put_template
+from infra_print.service.print_service import (
     PrintService,
     RenderError,
     TemplateDisabledError,

@@ -1,7 +1,7 @@
 """HTML→PDF 渲染——WeasyPrint 是阶段三的默认实现（设计计划 §3.3）。
 
 ⚠️ 业务代码（service 层）不许直接 import weasyprint——只通过
-``app.render.get_renderer`` 拿 ``Renderer`` 接口，换引擎（比如以后要支持
+``infra_print.render.get_renderer`` 拿 ``Renderer`` 接口，换引擎（比如以后要支持
 Chromium）只改这一个文件，不改调用点。
 
 模板用 Jinja2 做变量替换——⚠️ 设计计划 §9 待决问题 3 的既定原则是"只做

@@ -16,8 +16,8 @@ from fastapi import APIRouter, HTTPException, Path, Query, Response, status
 from pydantic import BaseModel
 
 import besdk
-from app.repo.templates import Template, TemplateNotFoundError, TemplateVersionNotFoundError
-from app.service.print_service import PrintService, RenderError, TemplateDisabledError
+from infra_print.repo.templates import Template, TemplateNotFoundError, TemplateVersionNotFoundError
+from infra_print.service.print_service import PrintService, RenderError, TemplateDisabledError
 
 
 def _template_to_dto(t: Template) -> dict:

@@ -1,4 +1,4 @@
-"""app.repo.templates——真实 Postgres，走 infra_print/infra_print_rw
+"""infra_print.repo.templates——真实 Postgres，走 infra_print/infra_print_rw
 （真机迁移已跑过，见 migrations/001_create_print.sql）。
 """
 
@@ -7,7 +7,7 @@ from __future__ import annotations
 import asyncpg
 import pytest
 
-from app.repo.templates import (
+from infra_print.repo.templates import (
     TemplateVersionNotFoundError,
     batch_get_templates,
     get_template,

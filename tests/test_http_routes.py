@@ -1,4 +1,4 @@
-"""app.http.routes——真实 FastAPI app（``new_fastapi_app`` 挂好的全部
+"""infra_print.http.routes——真实 FastAPI app（``new_fastapi_app`` 挂好的全部
 中间件）+ 真实 RS256 JWT + 真实 bundle 轮询，走 httpx 的 ASGITransport
 直接对 ASGI app 发真请求（不经过真实 socket，但请求/响应、权限判定链路
 是真的，不是绕过 ``require_permission`` 直接调 handler 函数）。
@@ -18,7 +18,7 @@ from besdk.metrics import new_registry
 from besdk.otel import get_meter, get_tracer, init_otel
 from besdk.runtime import Config, Runtime
 
-from app.module import create_module
+from infra_print.module import create_module
 from tests.authz_helpers import FakeBundleServer, FakeJWKSServer
 from tests.helpers import dsn, nats_url, unique
 

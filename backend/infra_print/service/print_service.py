@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.render import get_renderer
-from app.repo import jobs as jobs_repo
-from app.repo import templates as templates_repo
-from app.repo.templates import Template, TemplateNotFoundError, TemplateVersionNotFoundError
+from infra_print.render import get_renderer
+from infra_print.repo import jobs as jobs_repo
+from infra_print.repo import templates as templates_repo
+from infra_print.repo.templates import Template, TemplateNotFoundError, TemplateVersionNotFoundError
 
 if TYPE_CHECKING:
     import asyncpg

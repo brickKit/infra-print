@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
-from app.render.base import Renderer
-from app.render.pdf import WeasyPrintRenderer
-from app.render.zpl import ZplRenderer
+from infra_print.render.base import Renderer
+from infra_print.render.pdf import WeasyPrintRenderer
+from infra_print.render.zpl import ZplRenderer
 
 _RENDERERS: dict[str, Renderer] = {
     "PDF": WeasyPrintRenderer(),

@@ -1,4 +1,4 @@
-"""gRPC 面——组件间调用入口，同一套业务逻辑由 app.service.print_service
+"""gRPC 面——组件间调用入口，同一套业务逻辑由 infra_print.service.print_service
 提供（REST/gRPC 共用，http/routes.py 的既有判据）。
 
 ⚠️ actor 留空：gRPC 面没有 ``besdk.scope_of()`` 可用（本项目目前没有
@@ -14,8 +14,8 @@ import grpc
 from google.protobuf.timestamp_pb2 import Timestamp
 from infra.print.v1 import print_pb2, print_pb2_grpc
 
-from app.repo.templates import Template, TemplateNotFoundError
-from app.service.print_service import PrintService, RenderError, TemplateDisabledError
+from infra_print.repo.templates import Template, TemplateNotFoundError
+from infra_print.service.print_service import PrintService, RenderError, TemplateDisabledError
 
 _CHANNEL_TO_PROTO = {
     "PDF": print_pb2.Channel.CHANNEL_PDF,

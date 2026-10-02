@@ -1,4 +1,4 @@
-"""app.repo.jobs——record_job_and_publish 必须在同一个事务里落
+"""infra_print.repo.jobs——record_job_and_publish 必须在同一个事务里落
 print_jobs 与 event_outbox（Outbox Pattern，设计计划 §3.10）。真实
 Postgres，本组件此时尚未部署，直接用自己的真实 schema 不会有真实容器
 的 outbox pump 跟这里的断言竞态（同 be-sdk-python test_outbox.py 注释
@@ -13,7 +13,7 @@ import json
 import asyncpg
 import pytest
 
-from app.repo.jobs import STATUS_FAILED, STATUS_SUCCESS, record_job_and_publish
+from infra_print.repo.jobs import STATUS_FAILED, STATUS_SUCCESS, record_job_and_publish
 from tests.helpers import dsn, unique
 
 _ROLE = "infra_print_rw"

@@ -1,4 +1,4 @@
-"""app.partition——真机验证分区维护真的建出未来分区，且重复调用幂等
+"""infra_print.partition——真机验证分区维护真的建出未来分区，且重复调用幂等
 （``to_regclass`` 判存在，不是"先建、报错就忽略"）。用真实
 infra_print/infra_print_rw，表结构与真实迁移一致。
 """
@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 import asyncpg
 import pytest
 
-from app.partition import _ensure_all_monthly, _ensure_all_weekly, _monday_of
+from infra_print.partition import _ensure_all_monthly, _ensure_all_weekly, _monday_of
 from tests.helpers import dsn
 
 _ROLE = "infra_print_rw"

@@ -1,4 +1,4 @@
-"""app.grpc.server——真实 grpc.aio in-process server + 真实 client stub
+"""infra_print.grpc.server——真实 grpc.aio in-process server + 真实 client stub
 调用（不是直接调 servicer 的方法，走真实的 gRPC 序列化/反序列化）。
 """
 
@@ -12,9 +12,9 @@ import grpc
 import pytest
 from infra.print.v1 import print_pb2, print_pb2_grpc
 
-from app.grpc.server import register
-from app.repo.templates import put_template
-from app.service.print_service import PrintService
+from infra_print.grpc.server import register
+from infra_print.repo.templates import put_template
+from infra_print.service.print_service import PrintService
 from tests.helpers import dsn, unique
 
 _ROLE = "infra_print_rw"
