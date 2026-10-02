@@ -60,7 +60,7 @@ async def test_put_template第二次调用递增版本号并追加历史记录()
 
         rolled_back = await rollback_template(pool, _ROLE, _SCHEMA, template_id, 1)
         # 回滚 = 把历史版本复制成新的当前版本，版本号继续往前走（3），
-        # 不是把 version 倒退回 1——设计计划 §2 的既有判据。
+        # 不是把 version 倒退回 1。
         assert rolled_back.version == 3
         assert rolled_back.content == "content-v1"
 

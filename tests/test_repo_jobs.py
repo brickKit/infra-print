@@ -1,9 +1,6 @@
-"""infra_print.repo.jobs——record_job_and_publish 必须在同一个事务里落
-print_jobs 与 event_outbox（Outbox Pattern，设计计划 §3.10）。真实
-Postgres，本组件此时尚未部署，直接用自己的真实 schema 不会有真实容器
-的 outbox pump 跟这里的断言竞态（同 be-sdk-python test_outbox.py 注释
-里提到的风险——那里是因为测的是 SDK 本身、要避开所有真实组件；这里测
-的就是这个组件自己，等它真的部署之后再跑这类测试要小心同一个风险）。
+"""infra_print.repo.jobs——record_job_and_publish 在同一个事务里落 print_jobs 与
+event_outbox（Outbox）。真实 Postgres，连的是测试库 brickkit_test_db：部署着的组件
+连演示库，它的 outbox pump 不会和这里的断言抢同一批行。
 """
 
 from __future__ import annotations
