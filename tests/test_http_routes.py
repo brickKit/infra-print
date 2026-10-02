@@ -41,6 +41,7 @@ async def app_client():
                 "infra.print.template.edit",
             ],
             "print_viewer": ["infra.print.template.view"],
+            "print_editor": ["infra.print.template.view", "infra.print.template.edit"],
         }
     )
 
@@ -156,3 +157,52 @@ async def test_put_template再get回来能看到新版本(app_client) -> None:
     )
     assert get_resp.status_code == 200
     assert get_resp.json()["content"] == "^XA^XZ"
+
+
+async def _put(client, token: str, template_id: str, channel: str = "ZPL", content: str = "^XA^FD{{ x }}^FS^XZ"):
+    return await client.put(
+        f"/infra/print/templates/{template_id}",
+        json={"name": "模板", "channel": channel, "content": content, "enabled": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_put_template的channel不是PDF或ZPL返回422(app_client) -> None:
+    client, jwks, _pool = app_client
+    token = jwks.sign(sub="admin-1", roles=["print_admin"])
+    resp = await _put(client, token, unique("bad-channel"), channel="DOCX")
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_preview要编辑权限_只有查看权限返回403(app_client) -> None:
+    # preview 发生在编辑流程里，绑 infra.print.template.edit，不是 view。
+    client, jwks, _pool = app_client
+    template_id = unique("perm-preview")
+    assert (await _put(client, jwks.sign(sub="admin-1", roles=["print_admin"]), template_id)).status_code == 200
+
+    viewer = jwks.sign(sub="viewer-1", roles=["print_viewer"])
+    editor = jwks.sign(sub="editor-1", roles=["print_editor"])
+    body = {"data": {"x": "hi"}}
+    url = f"/infra/print/templates/{template_id}/preview"
+    assert (await client.post(url, json=body, headers={"Authorization": f"Bearer {viewer}"})).status_code == 403
+    ok = await client.post(url, json=body, headers={"Authorization": f"Bearer {editor}"})
+    assert ok.status_code == 200
+    assert ok.content == b"^XA^FDhi^FS^XZ"
+
+
+@pytest.mark.asyncio
+async def test_render要渲染权限_只有编辑权限返回403(app_client) -> None:
+    # render 绑 infra.print.render：能改模板不等于能用它出单据。
+    client, jwks, _pool = app_client
+    template_id = unique("perm-render")
+    assert (await _put(client, jwks.sign(sub="admin-1", roles=["print_admin"]), template_id)).status_code == 200
+
+    editor = jwks.sign(sub="editor-1", roles=["print_editor"])
+    resp = await client.post(
+        "/infra/print/render",
+        json={"template_id": template_id, "data": {"x": "hi"}},
+        headers={"Authorization": f"Bearer {editor}"},
+    )
+    assert resp.status_code == 403
