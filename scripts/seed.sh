@@ -1,90 +1,97 @@
 #!/usr/bin/env bash
-# 本组件自己的种子数据（总纲 SOP-W-7，从零设计）：种两个真实可用的
-# 打印模板——`Render`/`BatchGetTemplates`/`ListTemplates` 建仓库以来
-# 一直没有任何一条模板数据（不是 migration 播种，也没有任何组件的种子
-# 脚本给它上传过），意味着这个组件此前完全没法被真机体验/演示——
-# `Render` 拿一个不存在的 `template_id` 只会 404。
+# 本组件的种子数据：两个真实可渲染的模板，覆盖两条渲染路径。
+#   sales.delivery_note   PDF 送货单（WeasyPrint + Jinja2，按行循环明细）。前端"打印送货单"
+#                         按钮写死这个 id，数据形状与它一致：order_no、customer_name、
+#                         items[].product_name / qty / unit_price / subtotal、total_amount，
+#                         order_date 可选。灌两个版本（草稿 → 正式），版本列表与回滚有东西可看。
+#   sales.shipping_label  ZPL 发货标签（纯文本替换，含 ^BCN 条码指令）。
 #
-# ⚠️ `PUT /infra/print/templates/{id}`/`POST .../preview` 是真实的人类
-# 管理操作（模板版本管理本来就是这个组件的核心功能之一），不是像
-# `infra-workflow.CreateTask` 那样明确禁止绕过的组件间协议——本脚本走
-# 真实 REST 接口，不是绕开设计边界。
+# 写法：直接写演示库 brickkit_db（psql 走 be-postgres 容器），每个模板一个事务；
+# 模板已存在就整条跳过，所以可以重复跑，也不会覆盖管理员在界面上改过的模板。
+# 不走 REST 上传：PUT /templates/{id} 要真 token，而本组件可以在没有 authz / iam 的
+# 项目里单独起来。灌完经 gRPC Render（组件间调用面，不验 token）真渲染一次，确认
+# 镜像里的 WeasyPrint、中文字体与 ZPL 替换都能用。
 #
-# 两个模板覆盖两条渲染路径（设计计划 §3.2/§3.3）：
-#   ① seed-template-delivery-note（channel=PDF，WeasyPrint+Jinja2，
-#      真实按行循环渲染商品明细，同 Task 10 真机验证过的"带中文的 A4
-#      送货单"效果）
-#   ② seed-template-shipping-label（channel=ZPL，纯字符串模板替换，
-#      含一个真实条码指令 ^BCN）
-#
-# 模板内容存在同目录 templates/ 下（.jinja2 后缀只是给人看这是模板，
-# 不是真的用 jinja2 命令行工具处理——渲染由 infra-print 自己的
-# Jinja2 环境在 Render 时才做），用 python3 json.dumps 组 body 避免手写
-#转义 HTML/ZPL 里的引号和大括号出错。
-#
-# ⚠️ 本脚本没有配套 seed-clean.sh：print_templates 走版本管理设计
-# （put_template 是 upsert-with-history，见 docs/手册.md"写入顺序不能
-# 颠倒"那条），重跑本脚本只会给同一个模板 id 追加一个新版本，不会
-# 重复建行——这本身就是幂等的，且新版本历史正是这个组件想要展示的
-# 功能之一，不需要额外撤销机制。
-#
-# ⚠️ 前置条件（本脚本自己不建，靠 Makefile 的 seed 目标链式调用）：
-#   - infra-iam-casdoor/infra-authz 的种子身份（dev.superuser 全权限）
-#
-# 用法：make -C components/infra/print seed
+# 只给本地开发 / 演示用，不出现在任何部署或 CI 流程里。
+# 用法：make -C components/infra/print seed（要求本组件已经 brickkit up 起来）
 set -euo pipefail
-
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT="$(cd "$DIR/../../.." && pwd)"
 source "$ROOT/infra/scripts/lib/seed-net.sh"
-need python3; need docker
+
+need docker; need python3
 
 seed_net_check
-with_toolbox
 
-PRINT_REST="${PRINT_REST:-http://$(service_name infra/print):8400}"
-SEED_USER="dev.superuser"
-check_healthz "$PRINT_REST/healthz" "infra-print"
+SCHEMA="$(awk -F'\t' '$1=="infra-print"{print $2}' "$ROOT/registry/schemas.tsv")"
+[ -n "$SCHEMA" ] || die "registry/schemas.tsv 里找不到 infra-print 的 schema"
+GRPC_PORT="$(awk -F'\t' '$2=="infra/print"{print $4}' "$ROOT/registry/ports.tsv")"
+[ -n "$GRPC_PORT" ] || die "registry/ports.tsv 里找不到 infra/print 的 grpc 端口"
+TPL="$DIR/scripts/templates"
 
-wait_bundle_refresh
+# seed_template <id> <name> <channel> <内容文件…>：按顺序作为版本 1、2…写入，最后一个是当前版本。
+# 生成的 SQL 用美元引号包模板原文（模板里有引号、大括号、反斜杠），引号标签不能出现在原文里。
+seed_template() {
+  python3 - "$SCHEMA" "$@" <<'PY' | psqlx -q
+import sys
+schema, tid, name, channel, *files = sys.argv[1:]
+contents = [open(f, encoding="utf-8").read() for f in files]
 
-ACCESS_TOKEN="$(get_app_jwt "$SEED_USER")"
-ok "已换到真实应用 JWT"
+def lit(s: str, tag: str = "seed") -> str:
+    q = f"${tag}$"
+    assert q not in s, f"模板原文里出现了引号标签 {q}"
+    return f"{q}{s}{q}"
 
-# put_template 上传的模板内容走 BODY_FILE（也在 /tmp 下，跟 with_toolbox
-# 挂载的那次是同一个 /tmp，不需要额外挂载）。--user 权限坑同 COOKIE_JAR
-# （见 with_toolbox 注释），BODY_FILE 是 host 侧 mktemp 建出来的，同样
-# 需要工具箱容器以宿主机当前用户身份跑才能读写。
-BODY_FILE="$(mktemp)"
-trap 'rm -f "$COOKIE_JAR" "$BODY_FILE"; docker rm -f "$TOOLBOX" >/dev/null 2>&1' EXIT
-
-put_template() { # id name channel content_file
-  python3 -c '
-import json, sys
-name, channel, content_file = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(content_file, encoding="utf-8") as f:
-    content = f.read()
-print(json.dumps({"name": name, "channel": channel, "content": content, "enabled": True}))
-' "$2" "$3" "$4" > "$BODY_FILE"
-  curl -s -X PUT "$PRINT_REST/infra/print/templates/$1" \
-    -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
-    --data-binary @"$BODY_FILE" \
-    | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["id"] + "(v" + str(d["version"]) + ")")'
+rows = ",\n".join(
+    f"({lit(tid)}, {lit(name)}, {lit(channel)}, {lit(c, 'tpl')}, {i}, true)"
+    for i, c in enumerate(contents, start=1)
+)
+last = len(contents)
+print(f"""
+BEGIN;
+SET LOCAL search_path TO {schema};
+DO $do$
+BEGIN
+  IF EXISTS (SELECT 1 FROM print_templates WHERE id = {lit(tid)}) THEN
+    RAISE NOTICE '模板 % 已存在，跳过', {lit(tid)};
+    RETURN;
+  END IF;
+  INSERT INTO print_templates (id, name, channel, content, version, enabled)
+    VALUES ({lit(tid)}, {lit(name)}, {lit(channel)}, {lit(contents[-1], 'tpl')}, {last}, true);
+  INSERT INTO print_template_versions (template_id, name, channel, content, version, enabled)
+    VALUES {rows};
+END
+$do$;
+COMMIT;
+""")
+PY
 }
 
-echo "── 上传 2 个真实可渲染的模板（PDF 送货单 + ZPL 发货标签）──"
-T1="$(put_template seed-template-delivery-note "「本地测试」送货单" PDF "$DIR/scripts/templates/delivery_note.html.jinja2")"
-T2="$(put_template seed-template-shipping-label "「本地测试」发货标签" ZPL "$DIR/scripts/templates/shipping_label.zpl.jinja2")"
-ok "模板：$T1 $T2"
+echo "── infra-print：灌 2 个模板（已存在的跳过）──"
+seed_template sales.delivery_note "「本地测试」送货单" PDF "$TPL/delivery_note.draft.html.jinja2" "$TPL/delivery_note.html.jinja2"
+seed_template sales.shipping_label "「本地测试」发货标签" ZPL "$TPL/shipping_label.zpl.jinja2"
+psqlx -tA -F ' ' -c "SELECT id, 'v' || version FROM $SCHEMA.print_templates WHERE id LIKE 'sales.%' ORDER BY id" \
+  | sed 's/^/  /'
+ok "模板就绪"
 
-echo "── 真实调一次 Render，确认两条渲染路径（WeasyPrint/纯文本替换）都真的跑得通 ──"
-SAMPLE_DATA='{"order_no":"SO-SEED-0001","customer_name":"「本地测试」华南电子科技有限公司","order_date":"2026-09-12","package_count":"3","items":[{"name":"「本地测试」标准螺栓 M8","qty":"100","unit_price":"0.50","subtotal":"50.00"},{"name":"「本地测试」工业润滑油 20L","qty":"5","unit_price":"120.00","subtotal":"600.00"}],"total_amount":"650.00"}'
-PDF_BYTES="$(curl -s -X POST "$PRINT_REST/infra/print/render" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
-  -d "{\"template_id\":\"seed-template-delivery-note\",\"data\":$SAMPLE_DATA}" | wc -c)"
-[ "$PDF_BYTES" -gt 1000 ] || die "PDF 渲染结果异常小（$PDF_BYTES 字节），可能没渲染成功"
-ZPL_OUTPUT="$(curl -s -X POST "$PRINT_REST/infra/print/render" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
-  -d "{\"template_id\":\"seed-template-shipping-label\",\"data\":$SAMPLE_DATA}")"
-echo "$ZPL_OUTPUT" | grep -q "SO-SEED-0001" || die "ZPL 渲染结果里没有找到订单号，可能没渲染成功"
-ok "真机渲染验证通过：PDF $PDF_BYTES 字节，ZPL 输出含正确的订单号变量替换"
+echo "── 经 gRPC Render 真渲染一次（PDF 与 ZPL 两条路径）──"
+GRPCURL="docker run --rm -i --network $NET -v $DIR/contracts:/contracts:ro fullstorydev/grpcurl:latest"
+TARGET="$(service_name infra/print):$GRPC_PORT"
+SAMPLE='{"order_no":"SO-SEED-0001","customer_name":"「本地测试」华南电子科技有限公司","order_date":"2026-09-12","package_count":"3","items":[{"product_name":"「本地测试」标准螺栓 M8","qty":"100","unit_price":"0.50","subtotal":"50.00"},{"product_name":"「本地测试」工业润滑油 20L","qty":"5","unit_price":"120.00","subtotal":"600.00"}],"total_amount":"650.00"}'
+
+render() { # <template_id> -> grpcurl 的 JSON 输出
+  python3 -c 'import json,sys; print(json.dumps({"template_id": sys.argv[1], "data_json": sys.argv[2], "source_component": "seed"}))' "$1" "$SAMPLE" \
+    | $GRPCURL -plaintext -import-path /contracts -proto infra/print/v1/print.proto -d @ "$TARGET" infra.print.v1.PrintService/Render
+}
+
+render sales.delivery_note | python3 -c '
+import base64, json, sys
+r = json.load(sys.stdin); pdf = base64.b64decode(r["content"])
+assert r["contentType"] == "application/pdf" and pdf[:4] == b"%PDF" and len(pdf) > 1000, (r.get("contentType"), len(pdf))
+print(f"  sales.delivery_note → application/pdf，{len(pdf)} 字节")' || die "送货单渲染结果不对"
+render sales.shipping_label | python3 -c '
+import base64, json, sys
+r = json.load(sys.stdin); text = base64.b64decode(r["content"]).decode()
+assert r["contentType"] == "text/plain" and "SO-SEED-0001" in text and "^BCN" in text, text
+print("  sales.shipping_label → text/plain，订单号已替换进 ZPL")' || die "发货标签渲染结果不对"
+ok "两条渲染路径都能用"

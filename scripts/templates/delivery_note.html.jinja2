@@ -3,15 +3,16 @@
 <head>
 <meta charset="utf-8">
 <style>
-  /* ⚠️ 必须显式写 CJK SC 变体，不能依赖字体回退——fontconfig 在没有
-     lang hint 时默认选 Noto CJK 的 JP 变体而不是 SC（简体中文），见
-     README.md/docs/手册.md 记载的真实踩过的坑。 */
+  /* 显式写简体中文变体：fontconfig 没有 lang 提示时默认挑 Noto CJK 的 JP 变体 */
+  @page { size: A4; margin: 18mm 15mm; }
   body { font-family: "Noto Sans CJK SC", sans-serif; font-size: 12px; }
   h1 { font-size: 18px; text-align: center; }
   table { width: 100%; border-collapse: collapse; margin-top: 12px; }
   th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; }
+  td.num { text-align: right; }
   .meta { margin-top: 8px; }
   .total { text-align: right; margin-top: 8px; font-weight: bold; }
+  .sign { margin-top: 32px; display: flex; justify-content: space-between; }
 </style>
 </head>
 <body>
@@ -19,7 +20,7 @@
   <div class="meta">
     <div>单号：{{ order_no }}</div>
     <div>客户：{{ customer_name }}</div>
-    <div>日期：{{ order_date }}</div>
+    {% if order_date %}<div>日期：{{ order_date }}</div>{% endif %}
   </div>
   <table>
     <thead>
@@ -28,14 +29,15 @@
     <tbody>
       {% for item in items %}
       <tr>
-        <td>{{ item.name }}</td>
-        <td>{{ item.qty }}</td>
-        <td>{{ item.unit_price }}</td>
-        <td>{{ item.subtotal }}</td>
+        <td>{{ item.product_name }}</td>
+        <td class="num">{{ item.qty }}</td>
+        <td class="num">{{ item.unit_price }}</td>
+        <td class="num">{{ item.subtotal }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   <div class="total">合计：{{ total_amount }}</div>
+  <div class="sign"><span>发货人：</span><span>收货人签字：</span></div>
 </body>
 </html>
