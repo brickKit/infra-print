@@ -160,3 +160,19 @@ async def test_list_templates按channel筛选并支持游标分页() -> None:
         assert ours_after == ids[1:], "cursor 必须是排他的（id > cursor，不含 cursor 本身）"
     finally:
         await pool.close()
+
+
+@pytest.mark.asyncio
+async def test_batch_get_templates按请求顺序返回_查不到的省略() -> None:
+    # 契约（BatchGetTemplatesResponse.templates）：顺序与 template_ids 一致，查不到的 id 省略。
+    pool = await asyncpg.create_pool(dsn())
+    try:
+        id_a, id_b, id_c = unique("order-a"), unique("order-b"), unique("order-c")
+        for i in (id_a, id_b, id_c):
+            await put_template(pool, _ROLE, _SCHEMA, i, i, "ZPL", "^XA^XZ")
+
+        got = await batch_get_templates(pool, _ROLE, _SCHEMA, [id_c, unique("missing"), id_a, id_b])
+
+        assert [t.id for t in got] == [id_c, id_a, id_b]
+    finally:
+        await pool.close()
