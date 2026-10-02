@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Path, Query, Response, status
 from pydantic import BaseModel
 
@@ -40,7 +42,7 @@ class RenderRequestBody(BaseModel):
 
 class TemplateUpdateBody(BaseModel):
     name: str
-    channel: str
+    channel: Literal["PDF", "ZPL"]  # 契约的 enum；别的值由 FastAPI 回 422，不撞库表的 CHECK
     content: str
     enabled: bool = True
 
