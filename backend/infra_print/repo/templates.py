@@ -79,7 +79,9 @@ async def batch_get_templates(pool: "asyncpg.Pool", role: str, schema: str, temp
         )
         return [_row_to_template(r) for r in rows]
 
-    return await with_tx(pool, role, schema, _read)
+    # 契约要求顺序与 template_ids 一致；SQL 的返回顺序由执行计划决定，在这里按请求排回去。
+    by_id = {t.id: t for t in await with_tx(pool, role, schema, _read)}
+    return [by_id[i] for i in dict.fromkeys(template_ids) if i in by_id]
 
 
 async def list_templates(
