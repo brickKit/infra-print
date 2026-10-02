@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from infra_print.render import get_renderer
 from infra_print.repo import jobs as jobs_repo
 from infra_print.repo import templates as templates_repo
-from infra_print.repo.templates import Template, TemplateNotFoundError, TemplateVersionNotFoundError
+from infra_print.repo.templates import Template, TemplateNotFoundError, TemplateVersion, TemplateVersionNotFoundError
 
 if TYPE_CHECKING:
     import asyncpg
@@ -26,6 +26,10 @@ class TemplateDisabledError(Exception):
 
 class RenderError(Exception):
     pass
+
+
+class InvalidCursorError(ValueError):
+    """游标不是上一页给出的值（版本列表的游标是版本号）。"""
 
 
 class PrintService:
@@ -109,11 +113,25 @@ class PrintService:
     async def rollback_template(self, template_id: str, target_version: int) -> Template:
         return await templates_repo.rollback_template(self._pool, self._role, self._schema, template_id, target_version)
 
+    async def list_template_versions(
+        self, template_id: str, cursor: str, page_size: int
+    ) -> tuple[list[TemplateVersion], str]:
+        before: int | None = None
+        if cursor:
+            if not cursor.isdigit():
+                raise InvalidCursorError(f"非法游标：{cursor!r}")
+            before = int(cursor)
+        return await templates_repo.list_template_versions(
+            self._pool, self._role, self._schema, template_id, before, page_size
+        )
+
 
 __all__ = [
+    "InvalidCursorError",
     "PrintService",
     "RenderError",
     "TemplateDisabledError",
     "TemplateNotFoundError",
+    "TemplateVersion",
     "TemplateVersionNotFoundError",
 ]

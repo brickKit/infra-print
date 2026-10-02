@@ -44,7 +44,19 @@ class TemplateVersionNotFoundError(Exception):
         self.version = version
 
 
+@dataclass
+class TemplateVersion:
+    version: int
+    name: str
+    enabled: bool  # 写入这个版本时模板的启用状态
+    created_at: datetime
+
+
 _SELECT_COLUMNS = "id, name, channel, content, version, enabled, created_at, updated_at"
+_INSERT_VERSION = (
+    "INSERT INTO print_template_versions (template_id, name, channel, content, version, enabled) "
+    "VALUES ($1, $2, $3, $4, $5, $6)"
+)
 
 
 def _row_to_template(row: "asyncpg.Record") -> Template:
@@ -148,15 +160,7 @@ async def put_template(
             next_version,
             enabled,
         )
-        await conn.execute(
-            "INSERT INTO print_template_versions (template_id, name, channel, content, version) "
-            "VALUES ($1, $2, $3, $4, $5)",
-            template_id,
-            name,
-            channel,
-            content,
-            next_version,
-        )
+        await conn.execute(_INSERT_VERSION, template_id, name, channel, content, next_version, enabled)
         return _row_to_template(row)
 
     return await with_tx(pool, role, schema, _write)
@@ -197,15 +201,37 @@ async def rollback_template(pool: "asyncpg.Pool", role: str, schema: str, templa
         )
         if row is None:
             raise TemplateNotFoundError(template_id)
+        # 回滚不改启用状态：新版本记下的是回滚后模板的状态
         await conn.execute(
-            "INSERT INTO print_template_versions (template_id, name, channel, content, version) "
-            "VALUES ($1, $2, $3, $4, $5)",
-            template_id,
-            old["name"],
-            old["channel"],
-            old["content"],
-            next_version,
+            _INSERT_VERSION, template_id, old["name"], old["channel"], old["content"], next_version, row["enabled"]
         )
         return _row_to_template(row)
 
     return await with_tx(pool, role, schema, _write)
+
+
+async def list_template_versions(
+    pool: "asyncpg.Pool", role: str, schema: str, template_id: str, before_version: int | None, page_size: int
+) -> tuple[list[TemplateVersion], str]:
+    """模板的历史版本，新的在前。``before_version`` 是游标（上一页最后一个版本号，不含），
+    ``None`` 从最新版本开始。返回 (这一页, 下一页的游标)；没有更早的版本时游标为空串。
+    模板不存在抛 ``TemplateNotFoundError``（区别于"存在但还没有历史"）。"""
+    page_size = page_size if 0 < page_size <= 200 else 50
+
+    async def _read(conn: "asyncpg.Connection") -> list[TemplateVersion]:
+        if not await conn.fetchval("SELECT EXISTS (SELECT 1 FROM print_templates WHERE id = $1)", template_id):
+            raise TemplateNotFoundError(template_id)
+        rows = await conn.fetch(
+            "SELECT version, name, enabled, created_at FROM print_template_versions "
+            "WHERE template_id = $1 AND ($2::int IS NULL OR version < $2) ORDER BY version DESC LIMIT $3",
+            template_id,
+            before_version,
+            page_size + 1,
+        )
+        return [TemplateVersion(r["version"], r["name"], r["enabled"], r["created_at"]) for r in rows]
+
+    versions = await with_tx(pool, role, schema, _read)
+    if len(versions) > page_size:
+        versions = versions[:page_size]
+        return versions, str(versions[-1].version)
+    return versions, ""

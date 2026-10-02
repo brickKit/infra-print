@@ -18,8 +18,8 @@ from fastapi import APIRouter, HTTPException, Path, Query, Response, status
 from pydantic import BaseModel
 
 import besdk
-from infra_print.repo.templates import Template, TemplateNotFoundError, TemplateVersionNotFoundError
-from infra_print.service.print_service import PrintService, RenderError, TemplateDisabledError
+from infra_print.repo.templates import Template, TemplateNotFoundError, TemplateVersion, TemplateVersionNotFoundError
+from infra_print.service.print_service import InvalidCursorError, PrintService, RenderError, TemplateDisabledError
 
 
 def _template_to_dto(t: Template) -> dict:
@@ -33,6 +33,10 @@ def _template_to_dto(t: Template) -> dict:
         "created_at": t.created_at.isoformat(),
         "updated_at": t.updated_at.isoformat(),
     }
+
+
+def _version_to_dto(v: TemplateVersion) -> dict:
+    return {"version": v.version, "name": v.name, "enabled": v.enabled, "created_at": v.created_at.isoformat()}
 
 
 class RenderRequestBody(BaseModel):
@@ -110,12 +114,26 @@ def new_router(svc: PrintService) -> APIRouter:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
         return _template_to_dto(t)
 
+    async def list_versions_handler(
+        template_id: str = Path(alias="id"),
+        cursor: str = Query(default=""),
+        page_size: int = Query(default=50),
+    ) -> dict:
+        try:
+            versions, next_cursor = await svc.list_template_versions(template_id, cursor, page_size)
+        except TemplateNotFoundError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        except InvalidCursorError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        return {"versions": [_version_to_dto(v) for v in versions], "next_cursor": next_cursor}
+
     besdk.post(router, "/infra/print/render", "infra.print.render", render_handler)
     # preview 是编辑模板时的所见即所得校验，归编辑权限，不是查看权限
     # （契约本身没说，这是本组件自己的判断）。
     besdk.post(router, "/infra/print/templates/{id}/preview", "infra.print.template.edit", preview_handler)
     besdk.get(router, "/infra/print/templates", "infra.print.template.view", list_templates_handler)
     besdk.get(router, "/infra/print/templates/{id}", "infra.print.template.view", get_template_handler)
+    besdk.get(router, "/infra/print/templates/{id}/versions", "infra.print.template.view", list_versions_handler)
     besdk.put(router, "/infra/print/templates/{id}", "infra.print.template.edit", put_template_handler)
     besdk.post(router, "/infra/print/templates/{id}/rollback", "infra.print.template.edit", rollback_template_handler)
 
