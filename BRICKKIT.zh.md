@@ -23,6 +23,7 @@
 - **NATS** 在 `NATS_URL` 可达：渲染事件经 outbox 表与后台推送发出；NATS 不可达时组件照常启动，事件在 outbox 里等着。
 - **授权**（`infra/authz`）与**身份**（`infra/iam-casdoor`，或任何提供 JWKS 的 IAM）在 `AUTHZ_BUNDLE_URL`、`IAM_JWKS_URL` 可达，REST 路由才会返回错误以外的东西。它们是配置不是依赖：没有它们组件照样启动。gRPC 服务不验 token。
 - **字体与系统库**已在镜像里：WeasyPrint 要的 Pango、Cairo、HarfBuzz、GDK-Pixbuf，以及 `fonts-noto-cjk` 并建好 fontconfig 缓存。托管本组件的 Python 外壳必须装同一份；缺了中文字体，镜像照样能构建、`/healthz` 照样是绿的，但 PDF 里的中文是乱码。
+- **以本机进程运行**（部署文件里 `mode: local`，或 `brickkit up --focus infra/print`）：`local.runCommand` 是 `.venv/bin/python -m infra_print.main`，相对组件目录，所以先在组件目录 `make venv`；没有 `.venv` 进程起不来。这时本机要有镜像里原本提供的东西：WeasyPrint 的系统库与 Noto CJK 字体。
 - **模板**：组件不自带模板。用 `PUT /infra/print/templates/{id}` 上传；中文文字写 `font-family: "Noto Sans CJK SC"`，图片以 `data:` URI 内嵌。在 BrickEnterprise 项目里，组件跑起来之后在组件目录 `make seed`，灌一份默认送货单 `sales.delivery_note`（两个版本）和一份发货标签 `sales.shipping_label`。
 
 ## 依赖说明
