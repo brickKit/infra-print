@@ -102,3 +102,49 @@ async def test_HTTP版本列表_模板不存在404_游标不对400(app_client) -
     )
     resp = await client.get(f"/infra/print/templates/{tid}/versions", params={"cursor": "abc"}, headers=h)
     assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cursor",
+    [
+        "²",  # str.isdigit() 认上标数字，int() 却解析不了
+        "٣",  # 阿拉伯-印度数字：isdigit() 为真，int() 会悄悄当成 3
+        "99999999999",  # 超出 int4，撞库时才报错
+        "2147483648",  # int4 上界 + 1
+        "0",  # 版本号从 1 开始，游标不会是 0
+        "01",  # 本组件发出的游标没有前导零
+        "-1",
+        " 1",
+    ],
+)
+async def test_HTTP版本列表_游标只认1到int4上界的ASCII十进制_其余400(app_client, cursor) -> None:  # noqa: F811
+    client, jwks, _pool = app_client
+    admin = jwks.sign(sub="admin-1", roles=["print_admin"])
+    viewer = jwks.sign(sub="viewer-1", roles=["print_viewer"])
+    tid = unique("http-ver-strict-cursor")
+    await client.put(
+        f"/infra/print/templates/{tid}",
+        json={"name": "标签", "channel": "ZPL", "content": "^XA^XZ"},
+        headers={"Authorization": f"Bearer {admin}"},
+    )
+    url = f"/infra/print/templates/{tid}/versions"
+    resp = await client.get(url, params={"cursor": cursor}, headers={"Authorization": f"Bearer {viewer}"})
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_HTTP版本列表_游标取int4上界照常翻页(app_client) -> None:  # noqa: F811
+    client, jwks, _pool = app_client
+    admin = jwks.sign(sub="admin-1", roles=["print_admin"])
+    viewer = jwks.sign(sub="viewer-1", roles=["print_viewer"])
+    tid = unique("http-ver-max-cursor")
+    await client.put(
+        f"/infra/print/templates/{tid}",
+        json={"name": "标签", "channel": "ZPL", "content": "^XA^XZ"},
+        headers={"Authorization": f"Bearer {admin}"},
+    )
+    url = f"/infra/print/templates/{tid}/versions"
+    resp = await client.get(url, params={"cursor": "2147483647"}, headers={"Authorization": f"Bearer {viewer}"})
+    assert resp.status_code == 200
+    assert [v["version"] for v in resp.json()["versions"]] == [1]

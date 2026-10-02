@@ -206,3 +206,43 @@ async def test_render要渲染权限_只有编辑权限返回403(app_client) -> 
         headers={"Authorization": f"Bearer {editor}"},
     )
     assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "version",
+    [
+        True,  # 宽松的 int 会把 true 当成 1，悄悄回滚到 v1
+        2147483648,  # 超出列的 INT，撞库时才报错
+        0,  # 版本号从 1 开始
+        "1",  # 契约是 integer，不收字符串
+    ],
+)
+async def test_rollback的version不是1到int4上界的整数返回422(app_client, version) -> None:
+    client, jwks, _pool = app_client
+    token = jwks.sign(sub="admin-1", roles=["print_admin"])
+    template_id = unique("rollback-strict")
+    assert (await _put(client, token, template_id)).status_code == 200
+    resp = await client.post(
+        f"/infra/print/templates/{template_id}/rollback",
+        json={"version": version},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_rollback的version是合法整数时照常回滚(app_client) -> None:
+    client, jwks, _pool = app_client
+    token = jwks.sign(sub="admin-1", roles=["print_admin"])
+    template_id = unique("rollback-ok")
+    assert (await _put(client, token, template_id, content="^XA^FD1^FS^XZ")).status_code == 200
+    assert (await _put(client, token, template_id, content="^XA^FD2^FS^XZ")).status_code == 200
+    resp = await client.post(
+        f"/infra/print/templates/{template_id}/rollback",
+        json={"version": 1},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["version"] == 3
+    assert resp.json()["content"] == "^XA^FD1^FS^XZ"

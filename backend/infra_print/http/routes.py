@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Path, Query, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StrictInt
 
 import besdk
 from infra_print.repo.templates import Template, TemplateNotFoundError, TemplateVersion, TemplateVersionNotFoundError
@@ -49,7 +49,9 @@ class TemplateUpdateBody(BaseModel):
 
 
 class RollbackBody(BaseModel):
-    version: int
+    # StrictInt：宽松的 int 会把 true 当成 1、把 "1" 当成 1；上界是列的 INT（int4），
+    # 超出的值不能留到撞库时才变成 500。越界、非整数由 FastAPI 回 422。
+    version: StrictInt = Field(ge=1, le=2**31 - 1)
 
 
 class PreviewBody(BaseModel):

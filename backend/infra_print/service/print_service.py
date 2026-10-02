@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from infra_print.render import get_renderer
@@ -28,6 +29,13 @@ class RenderError(Exception):
 
 class InvalidCursorError(ValueError):
     """游标不是上一页给出的值（版本列表的游标是版本号）。"""
+
+
+# 版本号列是 INT（int4）。游标只认 ASCII 十进制、无前导零、1..int4 上界：
+# str.isdigit() 会放过 '²'（int() 解析不了）和 '٣'（int() 当成 3），超出 int4 的数
+# 撞库才报 DataError，三者都会变成 500 而不是契约写的 400。
+_CURSOR_RE = re.compile(r"[1-9][0-9]{0,9}")
+_INT4_MAX = 2_147_483_647
 
 
 class PrintService:
@@ -113,7 +121,7 @@ class PrintService:
     ) -> tuple[list[TemplateVersion], str]:
         before: int | None = None
         if cursor:
-            if not cursor.isdigit():
+            if not _CURSOR_RE.fullmatch(cursor) or int(cursor) > _INT4_MAX:
                 raise InvalidCursorError(f"非法游标：{cursor!r}")
             before = int(cursor)
         return await templates_repo.list_template_versions(
