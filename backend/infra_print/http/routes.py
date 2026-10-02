@@ -1,13 +1,10 @@
-"""REST 面——挂载路径 /infra/print/**（assembly.yaml 的 edge_routes）。
+"""REST 面，路径都在 /infra/print/** 下（assembly.yaml 的 edge_routes）。
 
-⚠️ 三个权限键与 assembly.yaml 的 permissions 段一字不差——Go 版漏写编译
-不过，这里靠 make gates 的裸路由扫描守（authz.py 的既有判据）。
+每条路由都经 ``besdk.get/post/put`` 带权限键注册，键与 assembly.yaml 的 permissions 段
+一字不差；裸 ``router.get`` 没有任何权限检查，``make gates`` 的裸路由扫描会拦。
 
-⚠️ 错误映射：be-sdk-python 目前没有 be-sdk-go 那种统一的
-``service.ToStatus(err)`` + gin 中间件把 domain error 自动翻成 HTTP
-状态码（fastapi_app.py 的中间件目前只有 OTel/RED/日志），所以这里在
-每个 handler 里显式 try/except 转成 ``HTTPException``——这是本组件自己
-的判断，等 be-sdk-python 补上统一的错误映射后再回来削减这层重复。
+错误映射在每个 handler 里显式 try/except 成 ``HTTPException``：be-sdk-python 的
+``new_fastapi_app`` 不把领域异常映射成状态码（be-sdk-go 有 ``service.ToStatus``）。
 """
 
 from __future__ import annotations
@@ -63,9 +60,8 @@ def new_router(svc: PrintService) -> APIRouter:
     router = APIRouter()
 
     async def render_handler(body: RenderRequestBody) -> Response:
-        # REST 调用方是真人经浏览器点出来的，不是组件间 gRPC 调用，
-        # source_component 留空——只有 gRPC 的 Render 才由调用方组件自报
-        # 身份（contracts 的 RenderRequest.source_component 注释）。
+        # REST 的调用方是人（actor 取自 token），source_component 留空；只有组件间
+        # gRPC Render 由调用方自报 source_component。
         actor = besdk.scope_of().owner
         try:
             content, content_type = await svc.render(body.template_id, body.data, actor=actor, source_component="")
@@ -128,8 +124,7 @@ def new_router(svc: PrintService) -> APIRouter:
         return {"versions": [_version_to_dto(v) for v in versions], "next_cursor": next_cursor}
 
     besdk.post(router, "/infra/print/render", "infra.print.render", render_handler)
-    # preview 是编辑模板时的所见即所得校验，归编辑权限，不是查看权限
-    # （契约本身没说，这是本组件自己的判断）。
+    # preview 是编辑模板时的所见即所得校验，归编辑权限，不是查看权限。
     besdk.post(router, "/infra/print/templates/{id}/preview", "infra.print.template.edit", preview_handler)
     besdk.get(router, "/infra/print/templates", "infra.print.template.view", list_templates_handler)
     besdk.get(router, "/infra/print/templates/{id}", "infra.print.template.view", get_template_handler)

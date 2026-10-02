@@ -1,6 +1,5 @@
-"""渲染记录——print_jobs，纯审计与排障，不存渲染结果字节（设计计划
-§2）。记一条 job 与发 ``infra.print.rendered.v1`` 旁路事件必须在同一个
-事务里（Outbox Pattern，设计计划 §3.10）。
+"""渲染记录 print_jobs：只为审计与排障，不存渲染出的字节。记一条 job 与发
+``infra.print.rendered.v1`` 旁路事件在同一个事务里（Outbox）。
 """
 
 from __future__ import annotations

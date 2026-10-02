@@ -1,5 +1,5 @@
 """模板存储与版本管理——print_templates（当前版本）/
-print_template_versions（历史，只增不改，设计计划 §2）。
+print_template_versions（历史，只增不改）。
 
 ⚠️ ``put_template``/``rollback_template`` 的写入顺序不能颠倒：必须先
 upsert ``print_templates``（父行），再 insert ``print_template_versions``
@@ -81,7 +81,7 @@ async def get_template(pool: "asyncpg.Pool", role: str, schema: str, template_id
 
 
 async def batch_get_templates(pool: "asyncpg.Pool", role: str, schema: str, template_ids: list[str]) -> list[Template]:
-    """防 N+1 的唯一合法批量读方式（§3.8）。查不到的 id 直接省略。"""
+    """批量读（避免调用方 N+1）。顺序与 template_ids 一致，查不到的 id 直接省略。"""
     if not template_ids:
         return []
 
@@ -99,8 +99,8 @@ async def batch_get_templates(pool: "asyncpg.Pool", role: str, schema: str, temp
 async def list_templates(
     pool: "asyncpg.Pool", role: str, schema: str, channel: str | None, cursor: str, page_size: int
 ) -> tuple[list[Template], str]:
-    """⚠️ 禁止深 Offset（决策 53）——游标是 ``id`` 本身（TEXT 主键，字典序
-    比较），不是数字自增 id，但判据完全一样：``id > cursor``。
+    """游标分页，不用 offset：游标是 ``id`` 本身（TEXT 主键，按字典序比较），
+    下一页是 ``id > cursor``。
     """
     page_size = page_size if 0 < page_size <= 200 else 50
 
@@ -167,10 +167,8 @@ async def put_template(
 
 
 async def rollback_template(pool: "asyncpg.Pool", role: str, schema: str, template_id: str, target_version: int) -> Template:
-    """回滚 = 把某个历史版本复制成新的当前版本，不是删掉新版本（设计
-    计划 §2）——读目标版本与写新版本在同一个事务里，避免"读的时候还在、
-    写的时候被别的请求改没了"这类竞态（虽然本组件的模板管理不是高并发
-    场景，但同一份代码在合并部署形态下没有理由降低这层保证）。
+    """回滚 = 把某个历史版本复制成新的当前版本，版本号继续往前走，不删任何版本。
+    读目标版本与写新版本在同一个事务里，避免读的时候还在、写的时候已被别的请求改掉。
     """
 
     async def _write(conn: "asyncpg.Connection") -> Template:

@@ -1,9 +1,8 @@
-"""gRPC 面——组件间调用入口，同一套业务逻辑由 infra_print.service.print_service
-提供（REST/gRPC 共用，http/routes.py 的既有判据）。
+"""gRPC 面：组件间调用的入口，逻辑与 REST 共用 infra_print.service.print_service。
 
-⚠️ actor 留空：gRPC 面没有 ``besdk.scope_of()`` 可用（本项目目前没有
-任何组件在 gRPC 侧转发/验证 JWT，同 infra-workflow AGENTS.md 的既有
-判据）——print_jobs.actor 只在 REST 调用路径上才有意义。
+actor 留空：组件间 gRPC 不转发、也不验证调用方的 JWT，gRPC 面没有 ``besdk.scope_of()``；
+调用方是谁只能看它自报的 ``source_component``（本组件不核实）。print_jobs.actor 只在
+REST 路径上有值。
 """
 
 from __future__ import annotations

@@ -1,18 +1,12 @@
-"""Module.start 的后台循环之一：为 event_outbox 建未来周分区、
-print_jobs 建未来月分区。移植自 Go 版 partition.go/monthly.go（
-infra-notification/erp-inventory 的既有实现），边界算法逐字对应，只是
-语言从 Go 换成 Python：
+"""Module.start 的后台循环：给 event_outbox 建未来的周分区、给 print_jobs 建未来的
+月分区。
 
-- ``to_regclass`` 判存在、``CREATE TABLE ... PARTITION OF`` 建分区，不
-  反过来"先建、报 already exists 就忽略"——一条语句真的执行失败会让
-  整个事务 aborted。
-- 边界锚点固定在 UTC 周一 00:00 / 月初 00:00，不是"从现在起 N 天"的
-  滑动窗口，否则相邻两次检查算出来的边界会对不上。
-- 建分区不需要额外 ``ALTER TABLE ... OWNER TO``：``with_tx`` 已经
-  ``SET LOCAL ROLE`` 过，``CREATE TABLE`` 建出来的所有者就是当前角色
-  本身（真机验证过的既有结论，同 infra-notification monthly.go 的
-  注释）——本组件目前没有专门为这一条在 Python/asyncpg 下重新验证，
-  沿用 Go 版已确认的 PostgreSQL 行为（与驱动语言无关）。
+- 先 ``to_regclass`` 判存在，再 ``CREATE TABLE ... PARTITION OF``；不反过来"先建、报
+  already exists 再忽略"——一条语句失败会让整个事务 aborted。
+- 边界锚定在 UTC 周一 00:00 / 月初 00:00，不是"从现在起 N 天"的滑动窗口，否则相邻两次
+  检查算出的边界对不上。
+- 建分区不需要 ``ALTER TABLE ... OWNER TO``：``with_tx`` 已经 ``SET LOCAL ROLE``，建出的
+  分区属主就是 infra_print_rw。
 """
 
 from __future__ import annotations
@@ -54,7 +48,7 @@ async def _ensure_partition(conn: "asyncpg.Connection", table: str, name: str, s
     if exists:
         return
     # table 只来自本模块内固定清单，start/end 是格式化过的日期字符串，
-    # 都不是外部输入，拼 SQL 是安全的（同 Go 版 ensurePartition 注释）。
+    # 都不是外部输入，拼进 SQL 是安全的。
     await conn.execute(
         f"CREATE TABLE {name} PARTITION OF {table} FOR VALUES FROM ('{start:%Y-%m-%d}') TO ('{end:%Y-%m-%d}')"
     )
@@ -85,10 +79,9 @@ async def _ensure_all_monthly(pool: "asyncpg.Pool", role: str, schema: str) -> N
 
 
 async def start_weekly(pool: "asyncpg.Pool", role: str, schema: str, logger: logging.Logger) -> None:
-    """周分区维护——event_outbox。立刻检查一次，之后每 24 小时检查一次；
-    单次失败只记日志，不让循环退出（``asyncio.CancelledError`` 必须
-    原样返回，不能被下面的 ``except Exception`` 吞掉——同 be-sdk-python
-    outbox.py 的 ``start_outbox_pump`` 既有写法）。
+    """周分区维护（event_outbox）。立刻检查一次，之后每 24 小时一次；单次失败只记日志，
+    循环不退出。``asyncio.CancelledError`` 要先接住并返回，不能被 ``except Exception`` 吞掉，
+    否则外壳关停时这个循环停不下来。
     """
     while True:
         try:

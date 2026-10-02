@@ -1,6 +1,5 @@
-"""Render(template, data) -> bytes 的唯一分流点——设计计划 §3.2：两条
-完全不同的渲染路径共用一个入口，channel 字段决定走哪条。service 层只
-调 ``get_renderer``，不直接 import 具体引擎（设计计划 §3.3）。
+"""渲染的唯一分流点：两条完全不同的渲染路径（HTML → PDF、模板 → ZPL）共用一个
+入口，模板的 channel 决定走哪条。service 层只调 ``get_renderer``，不直接 import 具体引擎。
 """
 
 from __future__ import annotations

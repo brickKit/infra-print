@@ -1,7 +1,5 @@
-"""编排层：REST 与 gRPC 共用同一套业务逻辑（同 be-sdk-go 组件的既有
-判据）。⚠️ 这一层只做"模板存不存在/启不启用"这类结构性校验，不做任何
-业务规则判断——本组件是纯函数，不理解调用方传来的 data 是什么业务对象
-（设计计划 §6.11）。
+"""编排层：REST 与 gRPC 共用这一套逻辑。只做"模板存不存在、启不启用"这类结构性
+校验，不做任何业务规则判断：本组件是纯函数，不理解调用方传来的 data 是什么业务对象。
 """
 
 from __future__ import annotations
@@ -40,9 +38,8 @@ class PrintService:
         self._logger = logger
 
     async def render(self, template_id: str, data: dict, *, actor: str = "", source_component: str = "") -> tuple[bytes, str]:
-        """真正落 print_jobs + 发 infra.print.rendered.v1 的正式渲染路径
-        （§3 契约表里的 ``Render`` rpc、``POST /render``）。
-        """
+        """正式渲染（gRPC ``Render``、``POST /render``）：成功失败都落一条 print_jobs，
+        并发 ``infra.print.rendered.v1``。"""
         template = await templates_repo.get_template(self._pool, self._role, self._schema, template_id)
         if template is None:
             await self._record(template_id, actor, source_component, ok=False, error="模板不存在")
@@ -62,9 +59,7 @@ class PrintService:
         return content, content_type
 
     async def preview(self, template_id: str, data: dict) -> tuple[bytes, str]:
-        """用样例数据预览——不写 print_jobs（设计计划 §3：不算一次正式
-        渲染），所以不经过 ``_record``。
-        """
+        """用样例数据预览：不算一次正式渲染，不写 print_jobs、不发事件。"""
         template = await templates_repo.get_template(self._pool, self._role, self._schema, template_id)
         if template is None:
             raise TemplateNotFoundError(template_id)
