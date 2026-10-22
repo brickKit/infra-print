@@ -1,0 +1,111 @@
+openapi: 3.1.0
+info:
+  title: infra/print user surface
+  version: 3.0.0
+  description: >-
+    Templates and their versions for people and the front end. Every route needs a platform access token and the
+    operation in x-operation. Errors are application/problem+json with a reason. Lists page by cursor only (protocol
+    14). Editing templates online is in the contract but not in this version: it answers CAPABILITY_UNSUPPORTED (D75).
+    Rendering for components is on the system surface (proto).
+paths:
+  /api/print/templates:
+    get:
+      operationId: listTemplates
+      x-operation: infra.print.template.read
+      parameters:
+        - $ref: '#/components/parameters/cursor'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: one page, by template
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [templates, next_cursor]
+                properties:
+                  templates: {type: array, items: {$ref: '#/components/schemas/Template'}}
+                  next_cursor: {type: string}
+        default: {$ref: '#/components/responses/problem'}
+  /api/print/templates/{template}/versions:
+    parameters: [{$ref: '#/components/parameters/template'}]
+    get:
+      operationId: listVersions
+      x-operation: infra.print.template.read
+      parameters:
+        - $ref: '#/components/parameters/cursor'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: one page, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [versions, next_cursor]
+                properties:
+                  versions: {type: array, items: {$ref: '#/components/schemas/Version'}}
+                  next_cursor: {type: string}
+        default: {$ref: '#/components/responses/problem'}
+    post:
+      operationId: createVersion
+      x-operation: infra.print.template.edit
+      summary: Save a new version of a template (not in this version, CAPABILITY_UNSUPPORTED)
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object}}}
+      responses:
+        default: {$ref: '#/components/responses/problem'}
+  /api/print/templates/{template}/versions/{version}:
+    parameters: [{$ref: '#/components/parameters/template'}, {$ref: '#/components/parameters/version'}]
+    get:
+      operationId: getVersion
+      x-operation: infra.print.template.read
+      responses:
+        '200': {description: the version with its data schema, content: {application/json: {schema: {$ref: '#/components/schemas/Version'}}}}
+        default: {$ref: '#/components/responses/problem'}
+  /api/print/templates/{template}/versions/{version}/preview:
+    parameters: [{$ref: '#/components/parameters/template'}, {$ref: '#/components/parameters/version'}]
+    post:
+      operationId: preview
+      x-operation: infra.print.template.preview
+      summary: Render the version with sample data the caller gives (marked as a preview)
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, description: the view model, checked against the version's data schema}}}
+      responses:
+        '200': {description: the PDF, content: {application/pdf: {schema: {type: string, format: binary}}}}
+        default: {$ref: '#/components/responses/problem'}
+components:
+  parameters:
+    template: {name: template, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}}
+    version: {name: version, in: path, required: true, schema: {type: integer, minimum: 1}}
+    cursor: {name: cursor, in: query, schema: {type: string}}
+    limit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+  responses:
+    problem:
+      description: an error (application/problem+json with reason)
+      content:
+        application/problem+json:
+          schema: {type: object, required: [reason], properties: {reason: {type: string}, detail: {type: string}}}
+  schemas:
+    Template:
+      type: object
+      required: [template, name, engine, current_version, state]
+      properties:
+        template: {type: string}
+        name: {type: string}
+        engine: {type: string, description: the rendering engine of its versions}
+        current_version: {type: integer, minimum: 1}
+        state: {enum: [active, inactive]}
+    Version:
+      type: object
+      required: [template, version, digest, origin, state, data_schema, created_at]
+      properties:
+        template: {type: string}
+        version: {type: integer, minimum: 1}
+        digest: {type: string, description: sha256 hex of the content and fonts}
+        origin: {enum: [bundled, customer]}
+        state: {enum: [active, retired]}
+        data_schema: {type: object, description: the JSON Schema of the view model}
+        created_at: {type: string, format: date-time}

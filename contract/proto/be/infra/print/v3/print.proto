@@ -1,0 +1,47 @@
+// The system surface of infra/print: a pure renderer (protocol 10). A template version plus the caller's data become a
+// document; the data is already trimmed by the caller's user's permissions and formatted (dates, amounts, words), and
+// this component reads nothing else. The user surface is REST (../../../../../openapi.yaml).
+syntax = "proto3";
+
+package be.infra.print.v3;
+
+option go_package = "github.com/brickKit/infra-print/contract/v3/gen/go/be/infra/print/v3;printv3";
+
+// RenderService renders. The same template version and data give the same bytes.
+service RenderService {
+  // Render validates the data against the version's JSON Schema (VALIDATION_FAILED otherwise), then renders under
+  // the time, memory and output limits (RENDER_LIMIT_EXCEEDED). The output fits one message (3 MiB by default);
+  // larger documents need a streaming method (later).
+  rpc Render(RenderRequest) returns (RenderResponse);
+}
+
+enum Format {
+  FORMAT_UNSPECIFIED = 0;
+  FORMAT_PDF = 1;
+  // later: CAPABILITY_UNSUPPORTED
+  FORMAT_ZPL = 2;
+}
+
+message RenderRequest {
+  // e.g. "invoice"
+  string template = 1;
+  // 0: the template's current version (the caller records the answered version and passes it next time)
+  int64 version = 2;
+  // UTF-8 JSON: the view model
+  bytes data = 3;
+  Format format = 4;
+  // a copy mark printed outside the view model (a reprint)
+  bool copy = 5;
+}
+
+message RenderResponse {
+  bytes content = 1;
+  // e.g. application/pdf
+  string media_type = 2;
+  string template = 3;
+  int64 version = 4;
+  // sha256 hex of the version's content and fonts
+  string version_digest = 5;
+  // sha256 hex of the content
+  string content_digest = 6;
+}
