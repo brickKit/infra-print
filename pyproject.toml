@@ -1,6 +1,6 @@
 [project]
 name = "infra-print"
-version = "3.0.0"
+version = "3.0.1"
 description = "The print component (infra/print): template versions and deterministic PDF rendering with Typst"
 requires-python = ">=3.15,<3.16"
 dependencies = [
@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-be-sdk = { git = "https://github.com/brickKit/be-sdk-python", tag = "v3.0.0a25" }
+be-sdk = { git = "https://github.com/brickKit/be-sdk-python", tag = "v3.0.0a26" }
 contract-infra-print = { git = "https://github.com/brickKit/infra-print", tag = "contract/v3.0.0-alpha.1", subdirectory = "contract/python" }
 
 [dependency-groups]
