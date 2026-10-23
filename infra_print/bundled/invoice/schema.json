@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "invoice view model",
+  "description": "erp/billing's print data of an issued invoice, formatted once (dates, grouped amounts, percents, the total in capitals).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["invoice", "seller", "buyer", "lines", "totals"],
+  "$defs": {"text": {"type": "string", "maxLength": 500}},
+  "properties": {
+    "invoice": {"type": "object", "additionalProperties": false, "required": ["number", "date", "currency"],
+      "properties": {"number": {"$ref": "#/$defs/text"}, "date": {"$ref": "#/$defs/text"}, "currency": {"type": "string", "pattern": "^[A-Z]{3}$"}}},
+    "seller": {"type": "object", "additionalProperties": false, "required": ["name", "code"],
+      "properties": {"name": {"$ref": "#/$defs/text"}, "code": {"$ref": "#/$defs/text"}}},
+    "buyer": {"type": "object", "additionalProperties": false, "required": ["name", "tax_id"],
+      "properties": {"name": {"$ref": "#/$defs/text"}, "tax_id": {"$ref": "#/$defs/text"}}},
+    "lines": {"type": "array", "minItems": 1, "maxItems": 500, "items": {"type": "object", "additionalProperties": false,
+      "required": ["no", "code", "name", "quantity", "unit", "unit_price", "net", "tax_rate", "tax"],
+      "properties": {"no": {"type": "integer", "minimum": 1}, "code": {"$ref": "#/$defs/text"}, "name": {"$ref": "#/$defs/text"},
+        "quantity": {"$ref": "#/$defs/text"}, "unit": {"$ref": "#/$defs/text"}, "unit_price": {"$ref": "#/$defs/text"},
+        "net": {"$ref": "#/$defs/text"}, "tax_rate": {"$ref": "#/$defs/text"}, "tax": {"$ref": "#/$defs/text"}}}},
+    "totals": {"type": "object", "additionalProperties": false, "required": ["net", "tax", "gross", "gross_in_words"],
+      "properties": {"net": {"$ref": "#/$defs/text"}, "tax": {"$ref": "#/$defs/text"}, "gross": {"$ref": "#/$defs/text"},
+        "gross_in_words": {"$ref": "#/$defs/text"}}}
+  }
+}

@@ -1,0 +1,153 @@
+apiVersion: brickkit/v1
+kind: Component
+
+metadata:
+  id: infra/print
+  name: Print
+  version: 3.0.0
+  description: "A pure renderer: a template version plus the caller's view model become a deterministic PDF (Typst in isolated worker processes with time, memory and output limits); templates and their versions, preview"
+  repository: https://github.com/brickKit/infra-print
+
+deployment:
+  type: container
+  build:
+    context: .
+    dockerfile: Dockerfile
+  port: 8400
+  extraPorts:
+    - name: grpc
+      port: 9400
+      protocol: grpc
+
+healthCheck:
+  type: http
+  path: /healthz
+
+readinessCheck:
+  type: http
+  path: /readyz
+
+migration:
+  command: ["python", "-m", "infra_print", "migrate"]
+
+local:
+  runCommand: [uv, run, python, -m, infra_print]
+  migrationCommand: [uv, run, python, -m, infra_print, migrate]
+
+configSchema:
+  properties:
+    AUDIT_GRPC_URL:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    AUTHZ_GRPC_URL:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    DEPLOYMENT_ID:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    IAM_ISSUER:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    IAM_JWKS_URL:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    LOG_LEVEL:
+      description: SDK default info
+      enum:
+      - debug
+      - info
+      - warn
+      - error
+      type: string
+    OTEL_URL:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    PG_DATABASE:
+      type: string
+    PG_HOST:
+      type: string
+    PG_IDLE_IN_TX_TIMEOUT:
+      description: a duration (e.g. 2s, 500ms); SDK default 10s
+      type: string
+    PG_LOCK_TIMEOUT:
+      description: a duration (e.g. 2s, 500ms); SDK default 2s
+      type: string
+    PG_MIGRATION_HOST:
+      type: string
+    PG_MIGRATION_PORT:
+      type: integer
+    PG_OWNER_PASSWORD:
+      secret: true
+      type: string
+    PG_OWNER_USER:
+      type: string
+    PG_PASSWORD:
+      secret: true
+      type: string
+    PG_POOLER_PREPARED:
+      description: SDK default true
+      type: boolean
+    PG_POOL_BACKGROUND:
+      description: SDK default 4
+      type: integer
+    PG_POOL_FOREGROUND:
+      description: SDK default 8
+      type: integer
+    PG_PORT:
+      description: SDK default 5432
+      type: integer
+    PG_SCHEMA:
+      type: string
+    PG_STATEMENT_TIMEOUT:
+      description: a duration (e.g. 2s, 500ms); SDK default 5s
+      type: string
+    PG_USER:
+      type: string
+    PRINT_RENDER_MEMORY_MIB:
+      description: a worker's address space (RLIMIT_AS), MiB; a worker idles at about
+        300; SDK default 1024
+      type: integer
+    PRINT_RENDER_OUTPUT_KIB:
+      description: the largest document, KiB; one gRPC message (the SDK's 4 MiB limit)
+        must hold it; SDK default 3072
+      type: integer
+    PRINT_RENDER_QUEUE_WAIT:
+      description: how long a render waits for a worker before SERVICE_BUSY; a duration
+        (e.g. 2s, 500ms); SDK default 5s
+      type: string
+    PRINT_RENDER_TIMEOUT:
+      description: one render's limit; past it the worker is killed (RENDER_LIMIT_EXCEEDED);
+        a duration (e.g. 2s, 500ms); SDK default 10s
+      type: string
+    PRINT_RENDER_WORKERS:
+      description: 'renders at once (worker processes); 0: the number of CPUs; SDK
+        default 0'
+      type: integer
+    SERVICE_TLS_CA_FILE:
+      description: a file path, re-read on rotation
+      mount: file
+      secret: true
+      type: string
+    SERVICE_TLS_CERT_FILE:
+      description: a file path, re-read on rotation
+      mount: file
+      secret: true
+      type: string
+    SERVICE_TLS_KEY_FILE:
+      description: a file path, re-read on rotation
+      mount: file
+      secret: true
+      type: string
+    STOP_DRAIN_DELAY:
+      description: a duration (e.g. 2s, 500ms); SDK default 2s
+      type: string
+    STOP_TIMEOUT:
+      description: a duration (e.g. 2s, 500ms); SDK default 30s
+      type: string
+  required:
+  - PG_DATABASE
+  - PG_HOST
+  - PG_PASSWORD
+  - PG_SCHEMA
+  - PG_USER
+  type: object

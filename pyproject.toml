@@ -1,0 +1,31 @@
+[project]
+name = "infra-print"
+version = "3.0.0"
+description = "The print component (infra/print): template versions and deterministic PDF rendering with Typst"
+requires-python = ">=3.15,<3.16"
+dependencies = [
+    "be-sdk",
+    "contract-infra-print",
+    "typst",  # the renderer (docs/design.md: measured against WeasyPrint, dev data 7-07/renderer)
+    "jsonschema-rs",  # the view model against the version's data schema
+]
+
+[tool.uv.sources]
+be-sdk = { git = "https://github.com/brickKit/be-sdk-python", tag = "v3.0.0a25" }
+contract-infra-print = { git = "https://github.com/brickKit/infra-print", tag = "contract/v3.0.0-alpha.1", subdirectory = "contract/python" }
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "httpx", "pypdf"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["infra_print"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["integration: needs PostgreSQL and the bus (make test-integration)"]
+addopts = "-m 'not integration'"
