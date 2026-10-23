@@ -4,13 +4,15 @@ memory and output limits. The rules are docs/design.md."""
 from __future__ import annotations
 
 from datetime import timedelta
+from importlib import metadata
 from importlib.resources import files
 
 from besdk.authz import Definitions, Field, Operation, Resource
 from besdk.component import Definition
 from besdk.config import Key, Type
 
-ID, VERSION, GRPC_PORT = "infra/print", "3.0.0", 9400
+# VERSION is read from the installed package, so it cannot drift from pyproject.toml (3.0.1 shipped saying 3.0.0).
+ID, VERSION, GRPC_PORT = "infra/print", metadata.version("infra-print"), 9400
 
 # Resources and operations (contract/openapi.yaml names each route's operation).
 TEMPLATES = "infra.print.template"
