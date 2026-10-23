@@ -525,7 +525,7 @@ wheels = [
 
 [[package]]
 name = "infra-print"
-version = "3.0.2"
+version = "3.0.3"
 source = { editable = "." }
 dependencies = [
     { name = "be-sdk" },

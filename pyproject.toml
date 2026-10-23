@@ -1,6 +1,6 @@
 [project]
 name = "infra-print"
-version = "3.0.2"
+version = "3.0.3"
 description = "The print component (infra/print): template versions and deterministic PDF rendering with Typst"
 requires-python = ">=3.15,<3.16"
 dependencies = [
