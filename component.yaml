@@ -4,7 +4,7 @@ kind: Component
 metadata:
   id: infra/print
   name: Print
-  version: 3.0.6
+  version: 3.0.7
   description: "A pure renderer: a template version plus the caller's view model become a deterministic PDF (Typst in isolated worker processes with time, memory and output limits); templates and their versions, preview"
   repository: https://github.com/brickKit/infra-print
 
