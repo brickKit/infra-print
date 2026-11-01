@@ -1,17 +1,17 @@
 [project]
 name = "infra-print"
-version = "3.0.9"
+version = "3.0.10"
 description = "The print component (infra/print): template versions and deterministic PDF rendering with Typst"
 requires-python = ">=3.15,<3.16"
 dependencies = [
-    "be-sdk",
+    "be-sdk>=3.0.0a35",
     "contract-infra-print",
     "typst",  # the renderer (docs/design.md: measured against WeasyPrint, dev data 7-07/renderer)
     "jsonschema-rs",  # the view model against the version's data schema
 ]
 
 [tool.uv.sources]
-be-sdk = { git = "https://github.com/brickKit/be-sdk-python", tag = "v3.0.0a34" }
+be-sdk = { git = "https://github.com/brickKit/be-sdk-python", tag = "v3.0.0a35" }
 contract-infra-print = { git = "https://github.com/brickKit/infra-print", tag = "contract/v3.0.0-alpha.1", subdirectory = "contract/python" }
 
 [dependency-groups]
