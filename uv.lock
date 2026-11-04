@@ -149,8 +149,8 @@ wheels = [
 
 [[package]]
 name = "be-sdk"
-version = "3.0.0a47"
-source = { git = "https://github.com/brickKit/be-sdk-python?tag=v3.0.0a47#13250617e2fc3a2acef22efa890c373fbf51ef17" }
+version = "3.0.0a48"
+source = { git = "https://github.com/brickKit/be-sdk-python?tag=v3.0.0a48#320192de3b3a82902e303b7d97504cc1b6a690ed" }
 dependencies = [
     { name = "aiohttp" },
     { name = "asyncpg" },
@@ -525,7 +525,7 @@ wheels = [
 
 [[package]]
 name = "infra-print"
-version = "3.0.13"
+version = "3.0.14"
 source = { editable = "." }
 dependencies = [
     { name = "be-sdk" },
@@ -544,7 +544,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "be-sdk", git = "https://github.com/brickKit/be-sdk-python?tag=v3.0.0a47" },
+    { name = "be-sdk", git = "https://github.com/brickKit/be-sdk-python?tag=v3.0.0a48" },
     { name = "contract-infra-print", git = "https://github.com/brickKit/infra-print?subdirectory=contract%2Fpython&tag=contract%2Fv3.0.0-alpha.1" },
     { name = "jsonschema-rs" },
     { name = "typst" },
