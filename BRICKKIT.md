@@ -31,6 +31,7 @@
 | --- | --- |
 | `DEPLOYMENT_ID`、`IAM_ISSUER`、`IAM_JWKS_URL`、`AUTHZ_GRPC_URL`、`SERVICE_TLS_CERT_FILE`、`SERVICE_TLS_KEY_FILE`、`SERVICE_TLS_CA_FILE` | 受保护的用户面与 mTLS 的系统面要用 |
 | `PG_HOST`、`PG_DATABASE`、`PG_USER`、`PG_PASSWORD`、`PG_SCHEMA`（必填） | 自己的数据库；迁移另用 `PG_OWNER_USER`、`PG_OWNER_PASSWORD` |
+| `RECOVERY_PHASE` | 整套恢复的阶段，由恢复工具在共用变量里设，平时不设；设了时用户面答 `MAINTENANCE`（只读开放时放行读取），就绪答 `recovery_ready` |
 | `PRINT_RENDER_TIMEOUT` | 一次渲染的时限，缺省 10s；超过就杀掉工作进程 |
 | `PRINT_RENDER_MEMORY_MIB` | 工作进程的地址空间上限（`RLIMIT_AS`），缺省 1024；空闲时约 300 |
 | `PRINT_RENDER_OUTPUT_KIB` | 文档大小上限，缺省 3072（一个 gRPC 消息要装得下） |
