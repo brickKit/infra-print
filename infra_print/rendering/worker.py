@@ -1,7 +1,7 @@
-"""One render worker process (renderer.py starts it): reads a request frame from stdin, renders it with Typst and
+"""One render worker process (pool.py starts it): reads a request frame from stdin, renders it with Typst and
 writes the answer frames, until stdin closes. It sets its own limits before Typst loads and gives Typst nothing to
 read: an empty root, the bundled fonts only, a read-only package cache (no package is downloaded) and a dead proxy
-(no network). Run as python -m infra_print.worker <fonts dir> <address space bytes>."""
+(no network). Run as python -m infra_print.rendering.worker <fonts dir> <address space bytes>."""
 import json
 import os
 import resource

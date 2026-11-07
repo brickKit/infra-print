@@ -2,7 +2,7 @@
 and never over a customer's version), the template lists and the version read, the preview, and RenderService.Render
 called by components of the deployment with their service identity. Needs BE_SDK_TEST_PG_ADMIN (a PostgreSQL
 superuser DSN); the database is brickkit_test_db, the schema infra_print_it (dropped and made again at the start).
-Run: uv run pytest -q -m integration."""
+Run: make test-integration (uv run pytest -q -m integration itest/)."""
 import asyncio
 import hashlib
 import io
@@ -24,7 +24,7 @@ from besdk.config import EnvSource
 from besdk.testing import ALICE, BOB, World
 
 import infra_print
-from infra_print import templates
+from infra_print.templates import bundled as templates
 from tests.sample import invoice
 
 pytestmark = pytest.mark.integration

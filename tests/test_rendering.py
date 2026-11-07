@@ -11,9 +11,10 @@ import pytest
 from pypdf import PdfReader
 
 from besdk import errs
-from infra_print.module import TIMESTAMP
-from infra_print.renderer import Limits, Renderer
-from infra_print.templates import FONTS, Version, bundled
+from infra_print.rendering.pool import Limits, Renderer
+from infra_print.rendering.render import TIMESTAMP
+from infra_print.templates.bundled import FONTS, bundled
+from infra_print.templates.store import Version
 from tests.sample import invoice
 
 LIMITS = Limits(timeout=20, memory=1 << 30, output=3 << 20, workers=2, queue_wait=5)

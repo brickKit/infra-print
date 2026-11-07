@@ -64,7 +64,7 @@ class Renderer:
 
     async def _spawn(self) -> _Worker:
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, "-I", "-m", "infra_print.worker", self.fonts, str(self.limits.memory),
+            sys.executable, "-I", "-m", "infra_print.rendering.worker", self.fonts, str(self.limits.memory),
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
             env=WORKER_ENV)  # only its own: the process environment is shared by a shell's members
         w = _Worker(proc)

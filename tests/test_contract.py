@@ -27,4 +27,7 @@ def test_the_routes_are_the_openapi_document():
 
 
 def test_the_module_is_merge_safe():
-    assert scan([str(p) for p in (ROOT / "infra_print").glob("*.py") if p.name != "worker.py"]) == []
+    """Every module of the package, the business packages included; the render worker is a process of its own."""
+    files = [str(p) for p in (ROOT / "infra_print").rglob("*.py") if p.name != "worker.py"]
+    assert any("/templates/" in f for f in files) and any("/rendering/" in f for f in files)
+    assert scan(files) == []

@@ -4,31 +4,35 @@
 
 ## 代码地图
 
-| 位置 | 内容 |
+代码按业务模块分层。**先读这一节，再进目录**：每个代码目录都有自己的 `AGENTS.md`（同目录的 `CLAUDE.md` 让 Claude Code 读这个目录的文件时自动带上它），写这一层负责什么、不负责什么、每个文件、依赖谁、测在哪。
+
+| 目录 | 是什么 |
 | --- | --- |
-| `infra_print/__init__.py` | 组件定义：身份、端口、渲染上限的配置键、资源与操作 |
-| `infra_print/module.py` | 用户面（模板与版本的列表、读取、预览）、系统面（`RenderService.Render`，部署内任一组件可调）、启动时登记随组件提供的模板 |
-| `infra_print/templates.py` | 随组件提供的模板（`infra_print/bundled/`）、版本的摘要、启动时登记（`register`）、版本的读取与缓存、视图模型的校验 |
-| `infra_print/renderer.py` | 渲染的工作进程池：同时渲染的个数、排队期限、超时杀掉、死了换新、输出上限 |
-| `infra_print/worker.py` | 一个工作进程：先设地址空间上限，再载入 Typst；空的根目录、只有随带的字体、只读的包缓存、不通的代理 |
-| `infra_print/bundled/invoice/` | 账单模板：`template.typ`、视图模型的 JSON Schema（`schema.json`，与 erp/billing 的视图模型一致）、`meta.json` |
-| `infra_print/fonts/` | Noto Sans SC（OFL），模板版本的一部分 |
-| `infra_print/migrations/` | 表 |
+| [`infra_print/`](infra_print/AGENTS.md) | 入口：组件定义与组装（`__init__.py`、`__main__.py`、`module.py`）；下面的业务模块各一个子包，模块表与分层在它的 `AGENTS.md`；资源目录 `infra_print/bundled/`（随带的模板）、`infra_print/fonts/`、`infra_print/migrations/` |
+| `tests/` | 单元测试，按模块分文件：`test_contract.py`（入口）、`test_rendering.py`（渲染与校验）；`sample.py` 是样例视图模型 |
+| [`itest/`](itest/AGENTS.md) | 集成测试；它的 `AGENTS.md` 是测试索引 |
 | `contract/` | 本组件发布的契约，单独的包：`contract/proto/`、`contract/python/`、`contract/openapi.yaml` |
 | `docs/design.md` | 设计 |
 
+业务模块（`infra_print/` 下）：
+
+| 模块 | 负责 |
+| --- | --- |
+| [`templates`](infra_print/templates/AGENTS.md) | 模板与版本：随带的模板与启动时登记、版本的读取与缓存、视图模型的校验、模板与版本的路由 |
+| [`rendering`](infra_print/rendering/AGENTS.md) | 渲染：工作进程池与上限、工作进程、一次渲染、系统面 `RenderService.Render`、预览 |
+
 | 想改 | 从这里开始 | 然后 |
 | --- | --- | --- |
-| 账单的版式 | `infra_print/bundled/invoice/template.typ` | 内容变了就是新版本（启动时登记）；视图模型变了同时改 `schema.json` 与 erp/billing 的 print.go |
-| 渲染上限 | `__init__.py` 的配置键 | `renderer.py`；`tests/test_render.py` 的上限一段 |
-| 模板能碰到什么 | `worker.py` | `tests/test_render.py` 的“不读文件、不下载包” |
+| 账单的版式 | `infra_print/bundled/invoice/template.typ` | 内容变了就是新版本（启动时登记）；视图模型变了同时改 `schema.json` 与 erp/billing 的打印模块（它的视图模型） |
+| 渲染上限 | `infra_print/__init__.py` 的配置键 | `infra_print/rendering/pool.py`；`tests/test_rendering.py` 的上限一段 |
+| 模板能碰到什么 | `infra_print/rendering/worker.py` | `tests/test_rendering.py` 的“不读文件、不下载包” |
 | 加一个随带的模板 | `infra_print/bundled/` 下一个目录，三个文件同账单 | 调用它的组件的视图模型 |
 | 加字段、加接口 | 装配项目 be-assembly-standard 规范里的“改动配方” | `docs/design.md` 的数据与命令 |
 
 ## 构建与测试
 
-- `uv run pytest -q`（`make test`）：清单的 `configSchema` 与事件、OpenAPI 与路由（`besdk.manifest`）、合并安全、渲染的确定性与各项上限、模板的隔离。
-- `uv run pytest -q -m integration`（`make test-integration`）：真实的 PostgreSQL，例如 `BE_SDK_TEST_PG_ADMIN=postgres://postgres:<口令>@localhost:5432/postgres`（口令是装配项目 `.env` 的 `POSTGRES_PASSWORD`）；be-sdk-python 的 `besdk.testing` 是测试部署；库 `brickkit_test_db`，schema `infra_print_it` 每次开始时删掉再建，跑完留着；系统面以 `erp/billing`、`erp/sales` 的服务身份调用。
+- `uv run pytest -q`（`make test`）：清单的 `configSchema` 与事件、OpenAPI 与路由（`besdk.manifest`）、合并安全（包里全部模块）、渲染的确定性与各项上限、模板的隔离。
+- `make test-integration`（`uv run pytest -q -m integration itest/`）：真实的 PostgreSQL，例如 `BE_SDK_TEST_PG_ADMIN=postgres://postgres:<口令>@localhost:5432/postgres`（口令是装配项目 `.env` 的 `POSTGRES_PASSWORD`）；be-sdk-python 的 `besdk.testing` 是测试部署；库 `brickkit_test_db`，schema `infra_print_it` 每次开始时删掉再建，跑完留着；系统面以 `erp/billing`、`erp/sales` 的服务身份调用。
 - `brickkit lint`
 
 ## 设计取舍
@@ -40,7 +44,7 @@
 
 ## 易错点
 
-- 不要在模块里读进程环境：工作进程的环境是固定的几项（`renderer.py` 的 `WORKER_ENV`）。
+- 不要在模块里读进程环境：工作进程的环境是固定的几项（`infra_print/rendering/pool.py` 的 `WORKER_ENV`）。
 - 不要在事件循环里渲染：经 `Renderer.render`。
 - 镜像用 Debian slim：Typst 只发 glibc 的轮子；`wget` 要装上，平台的健康检查经 `/bin/sh` 与 `wget`。
 
