@@ -159,3 +159,45 @@ async def test_print_end_to_end(world, monkeypatch):
     assert [(r["version"], r["origin"]) for r in rows] == [(1, "bundled"), (2, "customer"), (3, "bundled")]
     assert await a.fetchval(f"SELECT current_version FROM {SCHEMA}.template WHERE template = 'invoice'") == 2
     await a.close()
+
+
+async def test_a_full_recoverys_checks(world):  # be-protocol P14.1-P14.3 (3.0.22)
+    """The recovery tool asks the print component whether the audited templates are still there at the version an
+    audit record names: the bundled invoice at its current version, a later version lost; another component may not
+    ask."""
+    from besdk._gen.be.recovery.v1 import check_pb2, check_pb2_grpc
+
+    grpc_port = free_port()
+    base, stop, task, out = await start(world, grpc_port)
+    try:
+        async def stub(component):
+            m = Member()
+            m.set_tls(world.tls(component))
+            return m, check_pb2_grpc.CheckServiceStub(m.grpc(infra_print.ID, f"127.0.0.1:{grpc_port}"))
+
+        m, s = await stub("ops/recover")
+        try:
+            with reqctx.deadline_scope(time.monotonic() + 10):
+                ref = lambda v="": check_pb2.ObjectRef(type=infra_print.TEMPLATES, id="invoice", version=v)  # noqa: E731
+                now = (await s.Present(check_pb2.PresentRequest(recovery="rec-1", objects=[ref()]),
+                                       metadata=options(idempotent=True))).answers[0]
+                assert now.answer == "present" and int(now.version) >= 1, "the bundled invoice at its current version"
+                v = int(now.version)
+                got = await s.Present(check_pb2.PresentRequest(recovery="rec-1", objects=[
+                    ref(str(v)), ref(str(v + 1)), check_pb2.ObjectRef(type=infra_print.TEMPLATES, id="no-such")]),
+                    metadata=options(idempotent=True))
+                checks = await s.Check(check_pb2.CheckRequest(recovery="rec-1"), metadata=options(idempotent=True))
+        finally:
+            await m.close()
+        assert [(a.answer, a.version) for a in got.answers] == [("present", str(v)), ("older", str(v)), ("absent", "")]
+        assert {r.check for r in checks.results} >= {"be.projections", "be.audit_backlog"}
+        m, s = await stub("erp/billing")
+        try:
+            with reqctx.deadline_scope(time.monotonic() + 10), pytest.raises(errs.Error) as e:
+                await s.Check(check_pb2.CheckRequest(recovery="rec-1"), metadata=options(idempotent=True))
+        finally:
+            await m.close()
+        assert e.value.reason == "PERMISSION_DENIED", "only the recovery tool"
+    finally:
+        stop.set()
+        await task

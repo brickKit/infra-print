@@ -40,7 +40,7 @@
 
 ## 契约索引
 
-- **系统面**（本仓库 `contract/proto`，Go 模块 `github.com/brickKit/infra-print/contract/v3`，Python 包 `contract-infra-print`，标签 `contract/v3.…`）：`be.infra.print.v3.RenderService/Render`：部署内任一组件以服务身份调用，操作 `infra.print.system.render`；版本传 0 用当前版本，回答带所用的版本、版本摘要与内容摘要。
+- **系统面**（本仓库 `contract/proto`，Go 模块 `github.com/brickKit/infra-print/contract/v3`，Python 包 `contract-infra-print`，标签 `contract/v3.…`）：`be.infra.print.v3.RenderService/Render`：部署内任一组件以服务身份调用，操作 `infra.print.system.render`；版本传 0 用当前版本，回答带所用的版本、版本摘要与内容摘要。另有 SDK 挂上的标准方法：整套恢复的核对 `be.recovery.v1.CheckService`（只许恢复工具 `ops/recover`，操作 `infra.print.system.recover`；3.0.22 起），模板按当前版本答“还在不在”。
 - **用户面**：`contract/openapi.yaml`。操作 `infra.print.template.read`（模板与版本的列表、读取）、`infra.print.template.preview`（预览，答 `application/pdf`）；`infra.print.template.edit` 本版不支持。模板不分法人，没有维度。
 - **事件**：无。
 

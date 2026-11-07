@@ -18,6 +18,7 @@ ID, VERSION, GRPC_PORT = "infra/print", metadata.version("infra-print"), 9400
 TEMPLATES = "infra.print.template"
 OP_READ, OP_PREVIEW, OP_EDIT = "infra.print.template.read", "infra.print.template.preview", "infra.print.template.edit"
 SYSTEM, OP_RENDER = "infra.print.system", "infra.print.system.render"
+OP_RECOVER = "infra.print.system.recover"  # a full recovery's checks (be-protocol chapter 14), only the recovery tool
 
 FIELDS = ["template", "name", "engine", "current_version", "state", "version", "digest", "origin", "data_schema",
           "created_at"]
@@ -44,11 +45,12 @@ def authz() -> Definitions:
                         Operation(OP_PREVIEW, TEMPLATES, "read", "low"),
                         Operation(OP_EDIT, TEMPLATES, "manage", "low", side_effects=["business_write"], audit=True),
                         Operation("infra.print.system.read", SYSTEM, "read", "low"),
-                        Operation(OP_RENDER, SYSTEM, "action", "low")])
+                        Operation(OP_RENDER, SYSTEM, "action", "low"),
+                        Operation(OP_RECOVER, SYSTEM, "read", "low")])
 
 
 def definition() -> Definition:
     from infra_print.module import Print
 
     return Definition(ID, VERSION, Print, keys=list(KEYS), migrations=files("infra_print") / "migrations",
-                      grpc_port=GRPC_PORT, authz=authz())
+                      grpc_port=GRPC_PORT, authz=authz(), recovery=OP_RECOVER)

@@ -13,6 +13,7 @@
 | 文件 | 测试 | 测的流程 | 被测的模块 |
 | --- | --- | --- | --- |
 | `test_print_integration.py` | `test_print_end_to_end` | 启动时登记随带的模板（只一次，从不覆盖客户的版本）、模板列表与版本的读取、预览、部署内的组件以服务身份调用 `RenderService.Render`、新的随带版本成为当前版本（当前版本是随带的时） | `templates`、`rendering`、入口 |
+| `test_print_integration.py` | `test_a_full_recoverys_checks` | 恢复工具问模板是否还在（当前版本答“还在”，更高的版本答“更低”，不存在的答“不在”）、SDK 自带的检查、别的组件被拒（3.0.22 起） | 入口 `recovery_checks` |
 
 共用的：`tests/sample.py`（账单的样例视图模型，单元测试也用）。
 

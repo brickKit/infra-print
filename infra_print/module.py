@@ -10,7 +10,7 @@ from importlib.resources import as_file
 from besdk.http import Route
 from besdk.system import ANY_COMPONENT, Method
 from be.infra.print.v3 import print_pb2_grpc
-from infra_print import OP_EDIT, OP_PREVIEW, OP_READ, OP_RENDER
+from infra_print import OP_EDIT, OP_PREVIEW, OP_READ, OP_RENDER, TEMPLATES
 from infra_print.rendering import render
 from infra_print.rendering.pool import Limits, Renderer
 from infra_print.templates import routes
@@ -48,6 +48,16 @@ class Print(print_pb2_grpc.RenderServiceServicer):
         return await render.render_call(self.store, self.renderer, request)
 
     # ------------------------------------------------------------------ user surface
+
+    def recovery_checks(self, c) -> None:
+        """A full recovery's presence question (be-protocol P14.3): a template is there at its current version; the
+        template edit is the audited business change (its target's version is the version it made current)."""
+        async def templates(tx, ids):
+            rows = await tx.fetch("SELECT template, coalesce(current_version, 0) AS v FROM template "
+                                  "WHERE template = ANY($1)", ids)
+            return {r["template"]: r["v"] for r in rows}
+
+        c.add_presence(TEMPLATES, templates)
 
     def routes(self, r) -> None:
         r.add(Route("GET", "/api/print/templates", self.list_templates, OP_READ))
