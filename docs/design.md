@@ -59,6 +59,8 @@
 
 ## 实现状态
 
+3.0.24：be-sdk a61（Parquet 读回分批；本组件不声明数据类别，行为不变）。
+
 3.0.23：be-sdk a60（冷热转层随 SDK；本组件不声明数据类别，行为不变）。
 
 3.0.22：be-sdk a59；整套恢复的核对（`be.recovery.v1.CheckService`，操作 `infra.print.system.recover`，只许恢复工具）：模板按当前版本答“还在”“版本更低”“不在”（审计的模板编辑以版本为目标）。
